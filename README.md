@@ -1,4 +1,4 @@
-# VeyraAI — Autonomous Revenue Operations Engine
+# Solen — Autonomous Revenue Operations Engine
 
 [![Status](https://img.shields.io/badge/Status-Active_Development-brightgreen?style=flat-square)](https://github.com)
 [![Stack](https://img.shields.io/badge/Frontend-React_%2B_Vite_%2B_Tailwind-61DAFB?style=flat-square&logo=react)](https://react.dev)
@@ -28,13 +28,13 @@
 
 ## 1. Project Vision & Overview
 
-**VeyraAI** (internally referenced as *FlowOps*) is a fully automated, AI-native **Revenue Operations Engine** engineered to replace the traditional Sales Development Representative (SDR) function end-to-end.
+**Solen** (also known as *FlowOps*) is a fully automated, AI-native **Revenue Operations Engine** engineered to replace the traditional Sales Development Representative (SDR) function end-to-end.
 
-The moment an inbound lead or free-trial signup enters the system, VeyraAI autonomously executes a multi-step enrichment, scoring, and outreach pipeline in under 90 seconds — a workflow that previously consumed 45–60 minutes of manual SDR time per lead.
+The moment an inbound lead or free-trial signup enters the system, Solen autonomously executes a multi-step enrichment, scoring, and outreach pipeline in under 90 seconds — a workflow that previously consumed 45–60 minutes of manual SDR time per lead.
 
 ### Core Value Proposition
 
-| Traditional SDR Workflow | VeyraAI Automated Pipeline |
+| Traditional SDR Workflow | Solen Automated Pipeline |
 |---|---|
 | Manual lead research (30–45 min) | Apollo.io firmographic enrichment (< 2s) |
 | Google/LinkedIn web research (15–30 min) | Perplexity live web scraping (< 5s) |
@@ -43,7 +43,7 @@ The moment an inbound lead or free-trial signup enters the system, VeyraAI auton
 | Manual CRM data entry | Autonomous HubSpot CRM upsert |
 | Inconsistent follow-up | Deterministic Slack alert routing |
 
-VeyraAI is not a CRM add-on. It is a **proprietary decisioning engine** that converts raw intent signals into closed revenue — without human intervention in the loop.
+Solen is not a CRM add-on. It is a **proprietary decisioning engine** that converts raw intent signals into closed revenue — without human intervention in the loop.
 
 ---
 
@@ -541,4 +541,4 @@ VITE_N8N_WEBHOOK_URL=http://localhost:5678/webhook/your-webhook-id
 
 ---
 
-*VeyraAI — Built to make the SDR role obsolete.*
+*Solen — Built to make the SDR role obsolete.*
