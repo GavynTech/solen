@@ -6,6 +6,7 @@
 [![Database](https://img.shields.io/badge/Data_Lake-PostgreSQL_%2F_Supabase-3ECF8E?style=flat-square&logo=supabase)](https://supabase.com)
 [![ML](https://img.shields.io/badge/ML_Roadmap-XGBoost_%7C_HMM_%7C_Embeddings-FF6F00?style=flat-square)](https://xgboost.readthedocs.io)
 [![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/Agency_Hero-Live_Demo-06B6D4?style=flat-square)](https://agency-hero-self.vercel.app)
 
 ---
 
