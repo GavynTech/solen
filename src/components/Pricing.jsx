@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import BookingModal from './BookingModal';
+import { useEffect, useRef } from 'react';
 import {
   CheckCircle2, Minus, ArrowRight, Zap, Star, Crown,
   Sparkles, ShieldCheck, Database, BrainCircuit,
@@ -277,14 +276,13 @@ function FAQItem({ q, a }) {
 /* ─────────────────────────────────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────────────────────────────────── */
+const CALENDLY_URL = 'https://calendly.com/turnerg3-mail';
+
 export default function Pricing() {
   const ref = useRef(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('');
 
-  const handleCtaClick = (planName) => {
-    setSelectedPlan(planName);
-    setModalOpen(true);
+  const handleCtaClick = () => {
+    window.Calendly?.initPopupWidget({ url: CALENDLY_URL });
   };
 
   useEffect(() => {
@@ -443,11 +441,6 @@ export default function Pricing() {
 
       </div>
 
-      <BookingModal
-        open={modalOpen}
-        planLabel={selectedPlan}
-        onClose={() => setModalOpen(false)}
-      />
     </section>
   );
 }
