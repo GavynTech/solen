@@ -2,6 +2,7 @@ import './index.css';
 import Hero            from './components/Hero';
 import ArchitectureMap from './components/ArchitectureMap';
 import Features        from './components/Features';
+import Testimonials    from './components/Testimonials';
 import Pricing         from './components/Pricing';
 import ChatWidget      from './components/ChatWidget';
 
@@ -11,6 +12,7 @@ export default function App() {
       <Hero />
       <ArchitectureMap />
       <Features />
+      <Testimonials />
       <Pricing />
 
       <ChatWidget />
@@ -31,9 +33,9 @@ export default function App() {
             Built with n8n, Apollo.io, and GPT-4o
           </p>
           <div className="flex items-center gap-4 text-xs text-white/25">
-            <a href="#" className="hover:text-white/50 transition-colors">Privacy</a>
-            <a href="#" className="hover:text-white/50 transition-colors">Terms</a>
-            <a href="#" className="hover:text-white/50 transition-colors">Contact</a>
+            <a href="/privacy"                     className="hover:text-white/50 transition-colors">Privacy</a>
+            <a href="/terms"                       className="hover:text-white/50 transition-colors">Terms</a>
+            <a href="mailto:hello@solenai.io"      className="hover:text-white/50 transition-colors">Contact</a>
           </div>
         </div>
       </footer>
