@@ -3,6 +3,7 @@ import Hero            from './components/Hero';
 import ArchitectureMap from './components/ArchitectureMap';
 import Features        from './components/Features';
 import Pricing         from './components/Pricing';
+import ChatWidget      from './components/ChatWidget';
 
 export default function App() {
   return (
@@ -11,6 +12,8 @@ export default function App() {
       <ArchitectureMap />
       <Features />
       <Pricing />
+
+      <ChatWidget />
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
       <footer className="relative border-t border-white/[0.04] bg-[#050507] px-6 py-10">
