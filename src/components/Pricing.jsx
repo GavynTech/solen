@@ -227,6 +227,7 @@ function PlanCard({ plan }) {
         {/* CTA */}
         <button
           type="button"
+          onClick={() => window.Calendly?.initPopupWidget({ url: 'https://calendly.com/turnerg3-mail' })}
           className={`btn-shine relative overflow-hidden w-full flex items-center justify-center gap-2
             rounded-xl px-6 py-3.5 text-sm font-semibold text-white
             shadow-lg transition-all duration-200 group ${s.btn}`}
@@ -368,8 +369,9 @@ export default function Pricing() {
             </p>
           </div>
 
-          <a
-            href="#"
+          <button
+            type="button"
+            onClick={() => window.Calendly?.initPopupWidget({ url: 'https://calendly.com/turnerg3-mail' })}
             className="btn-shine relative overflow-hidden shrink-0 flex items-center gap-2 rounded-xl
               bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500
               px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20
@@ -377,7 +379,7 @@ export default function Pricing() {
           >
             See Case Studies
             <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform duration-150" />
-          </a>
+          </button>
         </div>
 
         {/* ── "Included in every plan" mini grid ─────────────────────── */}
@@ -416,8 +418,9 @@ export default function Pricing() {
         {/* ── Bottom ghost CTA ────────────────────────────────────────── */}
         <div className="mt-14 text-center">
           <p className="text-white/30 text-sm mb-4">Not sure which tier fits your clients?</p>
-          <a
-            href="#"
+          <button
+            type="button"
+            onClick={() => window.Calendly?.initPopupWidget({ url: 'https://calendly.com/turnerg3-mail' })}
             className="btn-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full
               border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/20
               px-8 py-3 text-sm font-semibold text-white/75 hover:text-white
@@ -425,7 +428,7 @@ export default function Pricing() {
           >
             Book a Free 20-Minute Strategy Call
             <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform duration-150" />
-          </a>
+          </button>
           <p className="text-white/20 text-[11px] mt-3">
             No pitch. We'll tell you exactly which add-on fits your agency's current client base.
           </p>
