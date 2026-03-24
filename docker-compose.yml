@@ -5,8 +5,8 @@ services:
       - "5678:5678"
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=solen2024
+      - N8N_BASIC_AUTH_USER=${N8N_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
       - WEBHOOK_URL=http://localhost:5678/
       - N8N_RUNNERS_DISABLED=true
       - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
