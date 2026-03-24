@@ -1,9 +1,4 @@
-import { config } from 'dotenv';
-import { resolve } from 'path';
 import Anthropic from '@anthropic-ai/sdk';
-
-// Load .env.local for local development (no-op in Vercel production)
-config({ path: resolve(process.cwd(), '.env.local') });
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
