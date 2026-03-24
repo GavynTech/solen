@@ -54,7 +54,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = new Anthropic({ apiKey: process.env.api_key_claude20 });
     const response = await createWithRetry(client, {
       model:      'claude-opus-4-6',
       max_tokens: 1024,
