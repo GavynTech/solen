@@ -27,22 +27,30 @@ export default function ChatWidget() {
     if (!text || loading) return;
 
     const userMsg = { role: 'user', content: text };
-    const history = [...messages.filter((m) => m.role !== 'assistant' || messages.indexOf(m) > 0), userMsg];
+    // Skip the initial greeting (index 0) — it's display-only, not real conversation history
+    const history = [...messages.slice(1), userMsg];
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setLoading(true);
 
     try {
-      const res  = await fetch('/api/chat', {
+      const res = await fetch('/api/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ messages: history }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Server error ${res.status}`);
+      }
       const data = await res.json();
-      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply || data.error }]);
-    } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: 'Connection error. Please try again.' }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch (err) {
+      const msg = err.message?.includes('Server error 429')
+        ? "I'm a bit busy right now — try again in a moment."
+        : 'Connection error. Please try again.';
+      setMessages((prev) => [...prev, { role: 'assistant', content: msg }]);
     } finally {
       setLoading(false);
     }
