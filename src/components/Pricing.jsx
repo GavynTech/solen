@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import BookingModal from './BookingModal';
 import {
   CheckCircle2, Minus, ArrowRight, Zap, Star, Crown,
   Sparkles, ShieldCheck, Database, BrainCircuit,
@@ -151,7 +152,7 @@ function FeatureRow({ icon: Icon, label, included, checkClass }) {
 /* ─────────────────────────────────────────────────────────────────────────
    PLAN CARD
 ───────────────────────────────────────────────────────────────────────── */
-function PlanCard({ plan }) {
+function PlanCard({ plan, onCtaClick }) {
   const s    = A[plan.accent];
   const Icon = plan.icon;
 
@@ -227,7 +228,7 @@ function PlanCard({ plan }) {
         {/* CTA */}
         <button
           type="button"
-          onClick={() => window.Calendly?.initPopupWidget({ url: 'https://calendly.com/turnerg3-mail' })}
+          onClick={() => onCtaClick(plan.name)}
           className={`btn-shine relative overflow-hidden w-full flex items-center justify-center gap-2
             rounded-xl px-6 py-3.5 text-sm font-semibold text-white
             shadow-lg transition-all duration-200 group ${s.btn}`}
@@ -278,6 +279,13 @@ function FAQItem({ q, a }) {
 ───────────────────────────────────────────────────────────────────────── */
 export default function Pricing() {
   const ref = useRef(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('');
+
+  const handleCtaClick = (planName) => {
+    setSelectedPlan(planName);
+    setModalOpen(true);
+  };
 
   useEffect(() => {
     const el = ref.current;
@@ -348,7 +356,7 @@ export default function Pricing() {
 
         {/* ── Pricing cards ──────────────────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-center">
-          {plans.map((plan) => <PlanCard key={plan.id} plan={plan} />)}
+          {plans.map((plan) => <PlanCard key={plan.id} plan={plan} onCtaClick={handleCtaClick} />)}
         </div>
 
         {/* ── ROI callout ────────────────────────────────────────────── */}
@@ -369,9 +377,8 @@ export default function Pricing() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => window.Calendly?.initPopupWidget({ url: 'https://calendly.com/turnerg3-mail' })}
+          <a
+            href="#"
             className="btn-shine relative overflow-hidden shrink-0 flex items-center gap-2 rounded-xl
               bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500
               px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20
@@ -379,7 +386,7 @@ export default function Pricing() {
           >
             See Case Studies
             <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform duration-150" />
-          </button>
+          </a>
         </div>
 
         {/* ── "Included in every plan" mini grid ─────────────────────── */}
@@ -420,7 +427,7 @@ export default function Pricing() {
           <p className="text-white/30 text-sm mb-4">Not sure which tier fits your clients?</p>
           <button
             type="button"
-            onClick={() => window.Calendly?.initPopupWidget({ url: 'https://calendly.com/turnerg3-mail' })}
+            onClick={() => handleCtaClick('Discovery Call')}
             className="btn-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full
               border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/20
               px-8 py-3 text-sm font-semibold text-white/75 hover:text-white
@@ -435,6 +442,12 @@ export default function Pricing() {
         </div>
 
       </div>
+
+      <BookingModal
+        open={modalOpen}
+        planLabel={selectedPlan}
+        onClose={() => setModalOpen(false)}
+      />
     </section>
   );
 }

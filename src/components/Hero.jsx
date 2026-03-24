@@ -5,7 +5,7 @@ import {
   Building2, TrendingUp, User,
 } from 'lucide-react';
 
-const N8N_WEBHOOK_URL = 'https://your-n8n-domain.com/webhook/trial-signup';
+const PIPELINE_URL = '/api/pipeline';
 
 function domainToCompany(email) {
   const domain = (email.split('@')[1] || '').split('.')[0];
@@ -75,27 +75,48 @@ export default function Hero() {
 
   const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-  const triggerMockPipeline = (submittedEmail) => {
-    const company   = domainToCompany(submittedEmail);
-    const emailUser = submittedEmail.split('@')[0]
-      .replace(/[._-]/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+  const triggerPipelineNotifs = (submittedEmail, result) => {
+    const company = result?.enrichment?.company_name ?? domainToCompany(submittedEmail);
+    const score   = result?.score?.vip_score ?? '—';
+    const tier    = result?.score?.vip_tier ?? 'Processing';
+    const subject = result?.score?.outreach_draft?.subject ?? 'Draft ready';
+    const hsStatus = result?.hubspot?.status ?? 'created';
 
     const stages = [
-      { id: 1, type: 'webhook',  delay: 600,  icon: <Zap size={14} />,          title: '🔗 Webhook Received',          body: submittedEmail,                        sub: 'Pipeline triggered · n8n processing'           },
-      { id: 2, type: 'enrich',   delay: 2100, icon: <Building2 size={14} />,     title: '🔍 Apollo Enrichment Complete', body: `${company} · Series A · ~$18M ARR`,   sub: '280 employees · San Francisco, CA'             },
-      { id: 3, type: 'score',    delay: 3800, icon: <TrendingUp size={14} />,    title: '🔥 VIP Score: 94/100',          body: `${emailUser} · VP of Revenue Ops`,    sub: 'Tier: VIP · Immediate outreach required'       },
-      { id: 4, type: 'delivery', delay: 5400, icon: <CheckCircle2 size={14} />,  title: '✅ Alert Fired → #vip-leads',   body: 'HubSpot contact created · Draft ready', sub: 'Assigned to sales rep · Est. deal: $48K'     },
+      {
+        id: 1, type: 'webhook', icon: <Zap size={14} />,
+        title: '🔗 Pipeline Received',
+        body: submittedEmail,
+        sub: 'Apollo + Perplexity enrichment started',
+      },
+      {
+        id: 2, type: 'enrich', icon: <Building2 size={14} />,
+        title: '🔍 Enrichment Complete',
+        body: `${company} · ${result?.enrichment?.funding_stage ?? 'Unknown'} · ${result?.enrichment?.employee_count ?? '?'} employees`,
+        sub: result?.enrichment?.headquarters ?? result?.enrichment?.industry ?? '',
+      },
+      {
+        id: 3, type: 'score', icon: <TrendingUp size={14} />,
+        title: `🔥 VIP Score: ${score}/100`,
+        body: `Tier: ${tier} · ${result?.score?.recommended_action ?? 'Review recommended'}`,
+        sub: subject,
+      },
+      {
+        id: 4, type: 'delivery', icon: <CheckCircle2 size={14} />,
+        title: `✅ Alert Fired → #vip-leads`,
+        body: `HubSpot contact ${hsStatus} · Email draft ready`,
+        sub: `Pipeline completed in ${result?.pipeline_latency_ms ?? '?'}ms`,
+      },
     ];
 
-    stages.forEach(({ delay, id, ...rest }) => {
-      addTimer(() => setNotifs((prev) => [...prev, { id, ...rest }]), delay);
+    stages.forEach(({ id, ...rest }, i) => {
+      addTimer(() => setNotifs((prev) => [...prev, { id, ...rest }]), i * 1200 + 300);
     });
-    addTimer(() => setStatus('success'), 5000);
+    addTimer(() => setStatus('success'), stages.length * 1200 + 200);
     addTimer(() => {
       setExitingAll(true);
       addTimer(() => { setNotifs([]); setExitingAll(false); }, 400);
-    }, 10500);
+    }, stages.length * 1200 + 5500);
   };
 
   const handleSubmit = async (e) => {
@@ -107,20 +128,32 @@ export default function Hero() {
     }
     setStatus('loading');
     setErrorMsg('');
-    triggerMockPipeline(email);
+
+    // Show first notification immediately
+    addTimer(() => setNotifs((prev) => [
+      ...prev,
+      { id: 0, type: 'webhook', icon: <Zap size={14} />, title: '🔗 Pipeline Triggered', body: email, sub: 'Enrichment in progress…' },
+    ]), 300);
+
     try {
-      await fetch(N8N_WEBHOOK_URL, {
+      const res = await fetch(PIPELINE_URL, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email:     email.toLowerCase().trim(),
-          event:     'free_trial_signup',
           source:    'hero_cta_form',
-          timestamp: new Date().toISOString(),
           utmSource: new URLSearchParams(window.location.search).get('utm_source') ?? 'direct',
         }),
       });
-    } catch (_) { /* demo runs regardless */ }
+      const result = await res.json();
+      // Clear the placeholder notif and show real pipeline stages
+      setNotifs([]);
+      triggerPipelineNotifs(email, result);
+    } catch (_) {
+      // Still show demo notifications on failure
+      setNotifs([]);
+      triggerPipelineNotifs(email, null);
+    }
   };
 
   return (
