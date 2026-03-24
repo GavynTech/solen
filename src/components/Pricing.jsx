@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2, Minus, ArrowRight, Zap, Star, Crown,
   Sparkles, ShieldCheck, Database, BrainCircuit,
