@@ -1,0 +1,647 @@
+{
+  "id": "solen-pipeline-001",
+  "name": "Solen Lead Pipeline",
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "node-webhook",
+      "name": "Receive Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "solen-pipeline",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "solen-pipeline-webhook"
+    },
+    {
+      "id": "node-validate",
+      "name": "Validate Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\nconst { email, name, company, source, utmSource } = body;\n\nif (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(email))) {\n  throw new Error('Valid email required');\n}\n\nreturn [{\n  json: {\n    email: String(email).toLowerCase().trim(),\n    name: name ?? null,\n    company: company ?? null,\n    source: source ?? 'n8n_webhook',\n    utmSource: utmSource ?? null,\n    pipelineStart: Date.now()\n  }\n}];"
+      }
+    },
+    {
+      "id": "node-apollo-req",
+      "name": "Apollo Enrich",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        750,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/v1/people/match",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.APOLLO_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "={{ JSON.stringify({ email: $json.email, reveal_personal_emails: false }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": false
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "node-apollo-parse",
+      "name": "Parse Apollo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Validate Email').first().json;\nconst raw = $input.first().json;\n\nlet apolloData = {};\ntry {\n  const person = raw.person ?? {};\n  const org = person.organization ?? {};\n  apolloData = {\n    company_name: person.organization_name ?? org.name ?? prev.company ?? null,\n    annual_revenue: org.annual_revenue ?? null,\n    employee_count: org.estimated_num_employees ?? null,\n    industry: org.industry ?? null,\n    tech_stack: org.technology_names ?? [],\n    funding_stage: org.latest_funding_stage ?? null,\n    headquarters: org.city && org.country\n      ? `${org.city}, ${org.country}`\n      : (org.city ?? org.country ?? null),\n    linkedin_url: person.linkedin_url ?? org.linkedin_url ?? null\n  };\n} catch(e) {}\n\nreturn [{ json: { ...prev, apolloData } }];"
+      }
+    },
+    {
+      "id": "node-perplexity-req",
+      "name": "Perplexity Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.PERPLEXITY_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "={{ JSON.stringify({ model: 'sonar-pro', messages: [{ role: 'user', content: 'Research the company \"' + ($json.apolloData.company_name ?? $json.email.split('@')[1].split('.')[0]) + '\" for sales intelligence. ' + ($json.apolloData.industry ? 'Industry: ' + $json.apolloData.industry + '. ' : '') + ($json.apolloData.headquarters ? 'HQ: ' + $json.apolloData.headquarters + '. ' : '') + 'Provide: recent hiring signals, product launches, growth indicators, funding news, and intent signals suggesting they need revenue operations tooling. Be concise and factual.' }], max_tokens: 600 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": false
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "node-perplexity-parse",
+      "name": "Parse Perplexity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Parse Apollo').first().json;\nconst raw = $input.first().json;\n\nlet perplexityData = { summary: null, intent_signals: [] };\ntry {\n  const text = raw.choices?.[0]?.message?.content ?? '';\n  const signalKeywords = ['hiring', 'funding', 'launch', 'expansion', 'partnership', 'acquisition', 'growth'];\n  perplexityData = {\n    summary: text.trim() || null,\n    intent_signals: signalKeywords.filter(k => text.toLowerCase().includes(k))\n  };\n} catch(e) {}\n\nreturn [{ json: { ...prev, perplexityData } }];"
+      }
+    },
+    {
+      "id": "node-router",
+      "name": "Null-Safe Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $input.first().json;\nconst { apolloData } = prev;\n\nconst DEFAULTS = {\n  annual_revenue: 0,\n  employee_count: 50,\n  funding_stage: 'Unknown',\n  tech_stack: [],\n  industry: 'Technology'\n};\n\nconst enriched = { ...apolloData };\nconst null_fields_patched = [];\n\nfor (const [field, def] of Object.entries(DEFAULTS)) {\n  const v = apolloData[field];\n  if (v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) {\n    enriched[field] = def;\n    null_fields_patched.push(field);\n  }\n}\n\nreturn [{ json: { ...prev, enriched, null_fields_patched } }];"
+      }
+    },
+    {
+      "id": "node-claude-payload",
+      "name": "Build Claude Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const d = $input.first().json;\nconst { email, name, enriched, perplexityData, null_fields_patched } = d;\n\nconst leadContext = [\n  `Email: ${email}`,\n  name ? `Name: ${name}` : '',\n  `Company: ${enriched.company_name ?? 'Unknown'}`,\n  `Industry: ${enriched.industry}`,\n  `Employees: ${enriched.employee_count}`,\n  `Revenue: ${enriched.annual_revenue ? '$' + Number(enriched.annual_revenue).toLocaleString() : 'Unknown'}`,\n  `Funding: ${enriched.funding_stage}`,\n  `Tech Stack: ${Array.isArray(enriched.tech_stack) ? enriched.tech_stack.slice(0,8).join(', ') : 'Unknown'}`,\n  enriched.headquarters ? `HQ: ${enriched.headquarters}` : '',\n  perplexityData.summary ? `\\nResearch:\\n${perplexityData.summary}` : '',\n  perplexityData.intent_signals?.length ? `Intent Signals: ${perplexityData.intent_signals.join(', ')}` : '',\n  null_fields_patched.length ? `\\n(Defaults applied to: ${null_fields_patched.join(', ')})` : ''\n].filter(Boolean).join('\\n');\n\nconst payload = {\n  model: 'claude-opus-4-6',\n  max_tokens: 2000,\n  tools: [{\n    name: 'score_lead',\n    description: 'Score an inbound B2B lead and generate personalized outreach',\n    input_schema: {\n      type: 'object',\n      properties: {\n        vip_score: { type: 'integer', description: 'Score 0-100' },\n        vip_tier: { type: 'string', enum: ['VIP','High','Medium','Low'] },\n        score_rationale: { type: 'string' },\n        outreach_draft: {\n          type: 'object',\n          properties: { subject: { type: 'string' }, body: { type: 'string' } },\n          required: ['subject','body'],\n          additionalProperties: false\n        },\n        recommended_action: { type: 'string' },\n        confidence_interval: { type: 'string' }\n      },\n      required: ['vip_score','vip_tier','score_rationale','outreach_draft','recommended_action','confidence_interval'],\n      additionalProperties: false\n    }\n  }],\n  tool_choice: { type: 'tool', name: 'score_lead' },\n  system: 'You are a revenue operations AI scoring inbound leads for Solen. ICP: B2B SaaS, Series A-C, 50-500 employees, $5M-$100M ARR, RevOps/Sales Ops team. Score 0-100. VIP=80+, High=60-79, Medium=40-59, Low=<40. Write personalized outreach referencing specific company details.',\n  messages: [{ role: 'user', content: `Score this lead and draft outreach:\\n\\n${leadContext}` }]\n};\n\nreturn [{ json: { ...d, claudePayload: JSON.stringify(payload) } }];"
+      }
+    },
+    {
+      "id": "node-claude-req",
+      "name": "Claude Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2250,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "={{ $json.claudePayload }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "fullResponse": false
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-claude-parse",
+      "name": "Parse Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2500,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const prev = $('Null-Safe Router').first().json;\nconst inputItem = $input.first();\nconst rawJson = inputItem.json;\n\nlet claudeResponse;\n\nif (rawJson && rawJson.content) {\n  claudeResponse = rawJson;\n} else if (rawJson && rawJson.data && typeof rawJson.data === 'string') {\n  try { claudeResponse = JSON.parse(rawJson.data); } catch(e) {}\n} else if (rawJson && rawJson.data && Array.isArray(rawJson.data)) {\n  try { claudeResponse = JSON.parse(Buffer.from(rawJson.data).toString('utf-8')); } catch(e) {}\n} else if (inputItem.binary) {\n  const key = Object.keys(inputItem.binary)[0];\n  const b64 = inputItem.binary[key]?.data;\n  if (b64) { try { claudeResponse = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8')); } catch(e) {} }\n}\n\nif (!claudeResponse) {\n  throw new Error('Could not decode Claude response. rawJson keys: ' + Object.keys(rawJson ?? {}).join(','));\n}\n\n// Claude error response (type:'error') has no content array\nif (claudeResponse.type === 'error') {\n  throw new Error('Claude API error: ' + JSON.stringify(claudeResponse.error ?? claudeResponse));\n}\n\nconst toolUse = claudeResponse.content?.find(b => b.type === 'tool_use');\nif (!toolUse) {\n  throw new Error('No tool_use. stop_reason=' + claudeResponse.stop_reason + ' content=' + JSON.stringify(claudeResponse.content ?? null));\n}\n\nreturn [{ json: { ...prev, score: toolUse.input } }];"
+      }
+    },
+    {
+      "id": "node-hubspot-create",
+      "name": "HubSpot Create",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2500,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.HUBSPOT_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "={{ JSON.stringify({ properties: { email: $json.email, company: $json.enriched.company_name ?? '', industry: $json.enriched.industry ?? '', numberofemployees: $json.enriched.employee_count ? String($json.enriched.employee_count) : '', annualrevenue: $json.enriched.annual_revenue ? String($json.enriched.annual_revenue) : '', hs_lead_status: $json.score.vip_tier === 'VIP' ? 'IN_PROGRESS' : 'NEW', lifecyclestage: 'lead', vip_score: String($json.score.vip_score), vip_tier: $json.score.vip_tier, funding_stage: $json.enriched.funding_stage ?? '', solen_recommended_action: $json.score.recommended_action ?? '' } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": true
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "node-hubspot-check",
+      "name": "HubSpot 409?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2750,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 409,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-hubspot-search",
+      "name": "HubSpot Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3000,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.HUBSPOT_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: $('Parse Score').first().json.email }] }], properties: ['email'], limit: 1 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": false
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-hubspot-patch",
+      "name": "HubSpot PATCH",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3250,
+        200
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $json.results[0].id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.HUBSPOT_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "={{ JSON.stringify({ properties: { email: $('Parse Score').first().json.email, company: $('Parse Score').first().json.enriched.company_name ?? '', vip_score: String($('Parse Score').first().json.score.vip_score), vip_tier: $('Parse Score').first().json.score.vip_tier, hs_lead_status: $('Parse Score').first().json.score.vip_tier === 'VIP' ? 'IN_PROGRESS' : 'NEW', solen_recommended_action: $('Parse Score').first().json.score.recommended_action ?? '' } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": false
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-merge-hubspot",
+      "name": "Merge HubSpot",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3500,
+        300
+      ],
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "input1"
+      }
+    },
+    {
+      "id": "node-slack",
+      "name": "Slack Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3750,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "={{ JSON.stringify({ attachments: [{ color: $('Parse Score').first().json.score.vip_tier === 'VIP' ? '#7c3aed' : $('Parse Score').first().json.score.vip_tier === 'High' ? '#2563eb' : $('Parse Score').first().json.score.vip_tier === 'Medium' ? '#d97706' : '#6b7280', blocks: [{ type: 'header', text: { type: 'plain_text', text: ($('Parse Score').first().json.score.vip_tier === 'VIP' ? '\ud83d\udd25' : $('Parse Score').first().json.score.vip_tier === 'High' ? '\u26a1' : $('Parse Score').first().json.score.vip_tier === 'Medium' ? '\ud83d\udcca' : '\ud83d\udccb') + ' New ' + $('Parse Score').first().json.score.vip_tier + ' Lead \u2014 ' + ($('Parse Score').first().json.enriched.company_name ?? $('Parse Score').first().json.email.split('@')[1] ?? 'Unknown'), emoji: true } }, { type: 'section', fields: [{ type: 'mrkdwn', text: '*Email:*\\n' + $('Parse Score').first().json.email }, { type: 'mrkdwn', text: '*VIP Score:*\\n' + $('Parse Score').first().json.score.vip_score + '/100 (' + $('Parse Score').first().json.score.vip_tier + ')' }, { type: 'mrkdwn', text: '*Company:*\\n' + ($('Parse Score').first().json.enriched.company_name ?? 'Unknown') }, { type: 'mrkdwn', text: '*Employees:*\\n' + ($('Parse Score').first().json.enriched.employee_count ?? 'Unknown') }, { type: 'mrkdwn', text: '*Industry:*\\n' + ($('Parse Score').first().json.enriched.industry ?? 'Unknown') }, { type: 'mrkdwn', text: '*Funding:*\\n' + ($('Parse Score').first().json.enriched.funding_stage ?? 'Unknown') }] }, { type: 'section', text: { type: 'mrkdwn', text: '*Score Rationale:*\\n' + ($('Parse Score').first().json.score.score_rationale ?? 'N/A') } }, { type: 'section', text: { type: 'mrkdwn', text: '*Recommended Action:*\\n' + ($('Parse Score').first().json.score.recommended_action ?? 'N/A') } }, { type: 'section', text: { type: 'mrkdwn', text: '*Email Draft Subject:*\\n' + ($('Parse Score').first().json.score.outreach_draft?.subject ?? 'N/A') } }, { type: 'divider' }] }] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "fullResponse": false
+            }
+          }
+        },
+        "contentType": "raw",
+        "rawContentType": "application/json"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "node-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4000,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, email: $('Parse Score').first().json.email, enrichment: $('Parse Score').first().json.enriched, null_fields_patched: $('Parse Score').first().json.null_fields_patched, research: $('Parse Score').first().json.perplexityData, score: $('Parse Score').first().json.score, slack_sent: $json.body === 'ok', pipeline_latency_ms: Date.now() - $('Validate Email').first().json.pipelineStart }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receive Lead": {
+      "main": [
+        [
+          {
+            "node": "Validate Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Email": {
+      "main": [
+        [
+          {
+            "node": "Apollo Enrich",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apollo Enrich": {
+      "main": [
+        [
+          {
+            "node": "Parse Apollo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Apollo": {
+      "main": [
+        [
+          {
+            "node": "Perplexity Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity Research": {
+      "main": [
+        [
+          {
+            "node": "Parse Perplexity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Perplexity": {
+      "main": [
+        [
+          {
+            "node": "Null-Safe Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Null-Safe Router": {
+      "main": [
+        [
+          {
+            "node": "Build Claude Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Claude Payload": {
+      "main": [
+        [
+          {
+            "node": "Claude Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Score": {
+      "main": [
+        [
+          {
+            "node": "Parse Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Score": {
+      "main": [
+        [
+          {
+            "node": "HubSpot Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot Create": {
+      "main": [
+        [
+          {
+            "node": "HubSpot 409?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot 409?": {
+      "main": [
+        [
+          {
+            "node": "HubSpot Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge HubSpot",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "HubSpot Search": {
+      "main": [
+        [
+          {
+            "node": "HubSpot PATCH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot PATCH": {
+      "main": [
+        [
+          {
+            "node": "Merge HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Alert": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

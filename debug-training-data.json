@@ -1,0 +1,268 @@
+{
+  "session": "n8n-webhook-build",
+  "date": "2026-03-24",
+  "model": "claude-sonnet-4-6",
+  "total_iterations": 18,
+  "final_status": "pipeline_running_claude_tool_use_pending",
+
+  "errors": [
+    {
+      "id": 1,
+      "iteration": 1,
+      "node": "docker compose up",
+      "error": "docker: command not found",
+      "error_type": "environment_mismatch",
+      "root_cause": "Assumed Docker installed. System has Podman 5.8.1 instead.",
+      "fix": "Install podman-compose via pip, use docker.io/ registry prefix in image name",
+      "fix_type": "runtime_substitution",
+      "tokens_wasted": "~200",
+      "lesson": "Check runtime environment before assuming Docker. Fedora defaults to Podman."
+    },
+    {
+      "id": 2,
+      "iteration": 2,
+      "node": "podman-compose up",
+      "error": "Error: short-name resolution enforced but cannot prompt without a TTY",
+      "error_type": "registry_resolution",
+      "root_cause": "n8nio/n8n:latest is a short name. Podman on Fedora enforces full registry paths.",
+      "fix": "Change image to docker.io/n8nio/n8n:latest",
+      "fix_type": "config_correction",
+      "tokens_wasted": "~150",
+      "lesson": "Podman on Fedora/RHEL requires fully qualified image names (docker.io/...)."
+    },
+    {
+      "id": 3,
+      "iteration": 3,
+      "node": "n8n import:workflow",
+      "error": "SQLITE_CONSTRAINT: NOT NULL constraint failed: workflow_entity.id",
+      "error_type": "db_constraint",
+      "root_cause": "Workflow JSON had no id field. n8n requires id for import.",
+      "fix": "Add 'id': 'solen-pipeline-001' to workflow JSON root",
+      "fix_type": "schema_correction",
+      "tokens_wasted": "~100",
+      "lesson": "n8n import:workflow requires an id field in workflow JSON."
+    },
+    {
+      "id": 4,
+      "iteration": 4,
+      "node": "n8n REST API activation",
+      "error": "{'message':'X-N8N-API-KEY header required'}",
+      "error_type": "auth_mismatch",
+      "root_cause": "n8n basic auth (N8N_BASIC_AUTH_ACTIVE) only protects the UI. The /api/v1/ REST API requires a separate API key generated from UI.",
+      "fix": "Insert API key directly into user_api_keys SQLite table",
+      "fix_type": "db_surgery",
+      "tokens_wasted": "~500",
+      "lesson": "N8N_BASIC_AUTH_ACTIVE != REST API auth. They are separate systems."
+    },
+    {
+      "id": 5,
+      "iteration": 5,
+      "node": "n8n REST API activation",
+      "error": "{'message':'unauthorized'} even with valid API key",
+      "error_type": "auth_state",
+      "root_cause": "n8n owner account had email=null (setup wizard not completed). API key auth checks user state.",
+      "fix": "Call /rest/owner/setup to complete owner registration",
+      "fix_type": "state_initialization",
+      "tokens_wasted": "~300",
+      "lesson": "n8n won't accept API key auth until the owner setup wizard is completed."
+    },
+    {
+      "id": 6,
+      "iteration": 6,
+      "node": "/rest/owner/setup",
+      "error": "Internal Server Error 500 on first attempt",
+      "error_type": "misleading_http_status",
+      "root_cause": "Password validation failed silently in first attempt (no uppercase). 500 on second attempt was actually success - owner already existed from a prior session.",
+      "fix": "Verified via SQLite: owner was created with email=flowpersona@proton.me",
+      "fix_type": "verification",
+      "tokens_wasted": "~200",
+      "lesson": "n8n returns 500 when owner already exists. Check DB before assuming failure."
+    },
+    {
+      "id": 7,
+      "iteration": 7,
+      "node": "Webhook registration",
+      "error": "Active version not found for workflow with id 'solen-pipeline-001'",
+      "error_type": "version_state",
+      "root_cause": "workflow_entity.activeVersionId was NULL. Setting active=1 via DB is not enough - n8n also requires activeVersionId to match a workflow_history row.",
+      "fix": "UPDATE workflow_entity SET activeVersionId=versionId WHERE id='solen-pipeline-001'",
+      "fix_type": "db_surgery",
+      "tokens_wasted": "~400",
+      "lesson": "n8n activation requires both active=1 AND activeVersionId set in DB."
+    },
+    {
+      "id": 8,
+      "iteration": 8,
+      "node": "All Code nodes",
+      "error": "ReferenceError: fetch is not defined [line 45]",
+      "error_type": "sandbox_restriction",
+      "root_cause": "n8n 2.12.x runs Code nodes via JS Task Runner in isolated VM sandbox. fetch() is not available in the sandbox even though it exists in Node.js 24.",
+      "fix": "Replace all fetch() calls with n8n HTTP Request nodes",
+      "fix_type": "architectural_refactor",
+      "tokens_wasted": "~2000",
+      "lesson": "n8n Code nodes (v2) are sandboxed. No fetch(), no require(), no Node.js globals. HTTP calls must use HTTP Request nodes."
+    },
+    {
+      "id": 9,
+      "iteration": 9,
+      "node": "All HTTP Request nodes",
+      "error": "access to env vars denied. See N8N_BLOCK_ENV_ACCESS_IN_NODE",
+      "error_type": "security_default",
+      "root_cause": "n8n 2.x blocks $env access in nodes by default.",
+      "fix": "Add N8N_BLOCK_ENV_ACCESS_IN_NODE=false to docker-compose environment",
+      "fix_type": "config_flag",
+      "tokens_wasted": "~300",
+      "lesson": "n8n 2.x ships with env var access blocked in nodes. Must explicitly re-enable."
+    },
+    {
+      "id": 10,
+      "iteration": 10,
+      "node": "Claude Score HTTP Request",
+      "error": "400 - model: Field required",
+      "error_type": "expression_not_evaluated",
+      "root_cause": "Used specifyBody:'string' + body:'={{ JSON.stringify({model:...}) }}'. specifyBody is only valid for contentType json/form-urlencoded. For raw string body, must use contentType:'raw'.",
+      "fix": "Extract payload build to separate Code node, use contentType:'raw' + rawContentType:'application/json' + body:'={{ $json.claudePayload }}'",
+      "fix_type": "parameter_correction",
+      "tokens_wasted": "~800",
+      "lesson": "n8n HTTP Request v4.2: specifyBody is ONLY for json/form-urlencoded. Raw string body = contentType:'raw' + rawContentType + body."
+    },
+    {
+      "id": 11,
+      "iteration": 11,
+      "node": "Perplexity/HubSpot Authorization headers",
+      "error": "422 Api key required / 401 Invalid API key",
+      "error_type": "expression_syntax",
+      "root_cause": "Used '=Bearer {{ $env.PERPLEXITY_API_KEY }}' - mixing n8n expression delimiters incorrectly. Also introduced .$env (dot prefix) via Python script bug.",
+      "fix": "Use '={{ \"Bearer \" + $env.PERPLEXITY_API_KEY }}'",
+      "fix_type": "syntax_correction",
+      "tokens_wasted": "~300",
+      "lesson": "n8n expression syntax: ={{ expr }}. Never mix with {{ }} handlebars syntax."
+    },
+    {
+      "id": 12,
+      "iteration": 12,
+      "node": "Parse Score (Code)",
+      "error": "Claude returned no tool_use block",
+      "error_type": "response_parsing",
+      "root_cause": "PENDING - Claude is being called (23s execution) but response content array may not include tool_use. Possibly: (a) model returns text block instead, (b) tool_choice enforcement not working, (c) response is an error object.",
+      "fix": "IN PROGRESS - need to inspect raw Claude response",
+      "fix_type": "pending",
+      "tokens_wasted": "~500",
+      "lesson": "Pending."
+    }
+  ],
+
+  "parameter_map": {
+    "n8n_http_request_v4_2": {
+      "raw_string_body": {
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.someField }}"
+      },
+      "json_keypairs": {
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": { "parameters": [{"name": "key", "value": "={{ $json.val }}"}] }
+      },
+      "json_raw_string": {
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({...}) }}"
+      },
+      "auth_header_bearer": {
+        "name": "Authorization",
+        "value": "={{ 'Bearer ' + $env.TOKEN_VAR }}"
+      },
+      "auth_header_key": {
+        "name": "x-api-key",
+        "value": "={{ $env.API_KEY_VAR }}"
+      }
+    },
+    "n8n_env_var_access": {
+      "required_flag": "N8N_BLOCK_ENV_ACCESS_IN_NODE=false",
+      "syntax_in_nodes": "$env.VAR_NAME",
+      "syntax_in_expressions": "={{ $env.VAR_NAME }}"
+    },
+    "n8n_code_node_v2": {
+      "available": ["$input", "$json", "$env (if unblocked)", "$execution", "$workflow", "$now"],
+      "NOT_available": ["fetch", "require", "process.env", "XMLHttpRequest", "http module"],
+      "http_alternative": "Use HTTP Request node, not Code node"
+    },
+    "n8n_activation_db_requirements": {
+      "workflow_entity": {
+        "active": 1,
+        "activeVersionId": "must_match_workflow_history.versionId"
+      },
+      "webhook_entity": {
+        "workflowId": "workflow id",
+        "webhookPath": "path without leading slash",
+        "method": "POST",
+        "node": "webhook node name",
+        "webhookId": "webhookId from webhook node params",
+        "pathLength": 1
+      }
+    }
+  },
+
+  "iteration_timing": [
+    {"iter": 1, "action": "docker → podman switch", "cumulative_min": 5},
+    {"iter": 2, "action": "registry prefix fix", "cumulative_min": 8},
+    {"iter": 3, "action": "workflow id field", "cumulative_min": 12},
+    {"iter": 4, "action": "REST API auth discovery", "cumulative_min": 30},
+    {"iter": 5, "action": "owner setup discovery", "cumulative_min": 45},
+    {"iter": 6, "action": "500 vs success ambiguity", "cumulative_min": 55},
+    {"iter": 7, "action": "activeVersionId fix", "cumulative_min": 65},
+    {"iter": 8, "action": "fetch not defined → full architectural refactor", "cumulative_min": 110},
+    {"iter": 9, "action": "N8N_BLOCK_ENV_ACCESS_IN_NODE", "cumulative_min": 120},
+    {"iter": 10, "action": "specifyBody vs contentType:raw", "cumulative_min": 145},
+    {"iter": 11, "action": "Bearer expression syntax + Python script bug", "cumulative_min": 155},
+    {"iter": 12, "action": "Claude tool_use response pending", "cumulative_min": 165}
+  ],
+
+  "assumption_failures": [
+    "Docker is installed → WRONG, Podman",
+    "Short image names work in Podman → WRONG on Fedora",
+    "N8N_BASIC_AUTH_ACTIVE enables REST API auth → WRONG, separate systems",
+    "Setting active=1 in DB activates webhook → WRONG, also needs activeVersionId",
+    "n8n Code nodes have fetch() → WRONG, sandboxed VM",
+    "specifyBody:'string' sends raw body → WRONG, use contentType:'raw'",
+    "N8N_RUNNERS_DISABLED=true disables task runner → WRONG, runner still starts",
+    "podman restart picks up docker-compose env changes → WRONG, need podman-compose down/up"
+  ],
+
+  "correct_n8n_pipeline_architecture": {
+    "rule": "Code nodes = transform only. HTTP Request nodes = all external calls.",
+    "working_pattern": [
+      "Webhook node → receives POST",
+      "Code node → validates/normalizes input (no HTTP)",
+      "HTTP Request node → external API call",
+      "Code node → parses/transforms response (no HTTP)",
+      "... repeat for each API ...",
+      "Respond to Webhook node → returns final JSON"
+    ]
+  },
+
+  "numbers": {
+    "total_errors": 12,
+    "environment_errors": 2,
+    "auth_errors": 3,
+    "db_state_errors": 2,
+    "sandbox_restriction_errors": 1,
+    "parameter_naming_errors": 2,
+    "expression_syntax_errors": 1,
+    "pending": 1,
+    "errors_from_wrong_assumptions": 8,
+    "errors_from_docs_gaps": 4,
+    "architectural_refactors_required": 1,
+    "db_surgeries_required": 3,
+    "config_flags_required": 2,
+    "estimated_total_debug_minutes": 165,
+    "minutes_per_error_avg": 13.75,
+    "biggest_time_sink_error_id": 8,
+    "biggest_time_sink_minutes": 45,
+    "biggest_time_sink_reason": "fetch not defined required full workflow rebuild from Code-node-based to HTTP-Request-node-based architecture"
+  }
+}

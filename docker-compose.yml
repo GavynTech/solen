@@ -1,0 +1,26 @@
+services:
+  n8n:
+    image: docker.io/n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=solen2024
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_RUNNERS_DISABLED=true
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # API Keys (pulled from .env)
+      - APOLLO_API_KEY=${APOLLO_API_KEY}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HUBSPOT_ACCESS_TOKEN=${HUBSPOT_ACCESS_TOKEN}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
