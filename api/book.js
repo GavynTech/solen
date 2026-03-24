@@ -1,4 +1,10 @@
 import { Resend } from 'resend';
+import { enrichWithApollo } from './_services/apollo.js';
+import { scoreWithClaude } from './_services/scorer.js';
+import { nullSafeRoute } from './_services/router.js';
+import { upsertHubSpotContact } from './_services/hubspot.js';
+import { sendSlackAlert } from './_services/slack.js';
+import { logEnrichmentEvent } from './_services/supabase.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const NOTIFY_EMAIL = 'heavyworkloads99@proton.me';
@@ -15,6 +21,28 @@ export default async function handler(req, res) {
     if (!name || !email) {
       return res.status(400).json({ ok: false, error: 'Name and email are required.' });
     }
+
+    // Fire pipeline in background — don't block the email confirmation
+    (async () => {
+      try {
+        const enrichment = await enrichWithApollo(email);
+        const routed     = nullSafeRoute({ ...enrichment, company_name: enrichment.company_name ?? company });
+        const score      = await scoreWithClaude(email, routed);
+        const [hsResult] = await Promise.allSettled([
+          upsertHubSpotContact({ email, name, company: routed.company_name, plan }),
+          sendSlackAlert({
+            email, name,
+            enrichment: routed,
+            score,
+            source: `booking_cta — ${plan || 'Discovery Call'}`,
+          }),
+          logEnrichmentEvent({ email, enrichment: routed, score, source: 'booking' }),
+        ]);
+        void hsResult;
+      } catch (pipelineErr) {
+        console.error('[book] pipeline error:', pipelineErr.message);
+      }
+    })();
 
     await resend.emails.send({
       from: FROM,
