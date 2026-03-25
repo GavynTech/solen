@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { setCors } from '../_services/cors.js';
 
 function getClient() {
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
@@ -7,12 +8,6 @@ function getClient() {
   return createClient(url, key);
 }
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 function statusFromAge(timestamp, thresholdMs = 10 * 60 * 1000) {
   if (!timestamp) return 'standby';
   const age = Date.now() - new Date(timestamp).getTime();
@@ -20,23 +15,25 @@ function statusFromAge(timestamp, thresholdMs = 10 * 60 * 1000) {
 }
 
 export default async function handler(req, res) {
+  setCors(res);
+
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, CORS_HEADERS);
+    res.writeHead(204);
     return res.end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).set(CORS_HEADERS).json({ ok: false });
+    return res.status(405).json({ ok: false });
   }
 
   const { pin } = req.body ?? {};
   if (!pin || pin !== process.env.ADMIN_PIN) {
-    return res.status(401).set(CORS_HEADERS).json({ ok: false, error: 'Unauthorized' });
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
 
   const supabase = getClient();
   if (!supabase) {
-    return res.status(200).set(CORS_HEADERS).json({ ok: true, agents: FALLBACK_AGENTS, feed: [] });
+    return res.status(200).json({ ok: true, agents: FALLBACK_AGENTS, feed: [] });
   }
 
   try {
@@ -132,10 +129,10 @@ export default async function handler(req, res) {
       },
     ];
 
-    return res.status(200).set(CORS_HEADERS).json({ ok: true, agents, feed });
+    return res.status(200).json({ ok: true, agents, feed });
   } catch (err) {
     console.error('[agent-status]', err.message);
-    return res.status(500).set(CORS_HEADERS).json({ ok: false, error: err.message });
+    return res.status(500).json({ ok: false, error: err.message });
   }
 }
 

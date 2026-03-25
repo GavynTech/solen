@@ -1,3 +1,4 @@
+import { setCors } from './_services/cors.js';
 import { enrichWithApollo } from './_services/apollo.js';
 import { researchWithPerplexity } from './_services/perplexity.js';
 import { scrapeCompanyHooks } from './_services/firecrawl.js';
@@ -31,14 +32,16 @@ const CORS_HEADERS = {
 };
 
 export default async function handler(req, res) {
+  setCors(res);
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, CORS_HEADERS);
+    res.writeHead(204);
     return res.end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).set(CORS_HEADERS).json({ ok: false, error: 'Method not allowed' });
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
   const pipelineStart = Date.now();
@@ -48,7 +51,7 @@ export default async function handler(req, res) {
     const { email, name, company, source, utmSource } = req.body ?? {};
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).set(CORS_HEADERS).json({ ok: false, error: 'Valid email required' });
+      return res.status(400).json({ ok: false, error: 'Valid email required' });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -154,7 +157,7 @@ export default async function handler(req, res) {
       }).catch(console.error);
     }
 
-    return res.status(200).set(CORS_HEADERS).json({
+    return res.status(200).json({
       ok: true,
       email: normalizedEmail,
       enrichment: enriched,
@@ -169,7 +172,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('[api/pipeline]', err);
-    return res.status(500).set(CORS_HEADERS).json({
+    return res.status(500).json({
       ok: false,
       error: 'Pipeline failed. Please try again.',
       pipeline_latency_ms: Date.now() - pipelineStart,

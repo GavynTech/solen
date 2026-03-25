@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { embedText } from '../_services/rag.js';
+import { setCors } from '../_services/cors.js';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -101,24 +102,26 @@ const SEED_OBJECTIONS = [
 ];
 
 export default async function handler(req, res) {
+  setCors(res);
+
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, CORS_HEADERS);
+    res.writeHead(204);
     return res.end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).set(CORS_HEADERS).json({ ok: false });
+    return res.status(405).json({ ok: false });
   }
 
   const { pin } = req.body ?? {};
   if (!pin || pin !== process.env.ADMIN_PIN) {
-    return res.status(401).set(CORS_HEADERS).json({ ok: false, error: 'Unauthorized' });
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
 
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
-    return res.status(500).set(CORS_HEADERS).json({ ok: false, error: 'Supabase not configured' });
+    return res.status(500).json({ ok: false, error: 'Supabase not configured' });
   }
 
   const { createClient } = await import('@supabase/supabase-js');
@@ -145,7 +148,7 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(200).set(CORS_HEADERS).json({
+  return res.status(200).json({
     ok: true,
     inserted: results.inserted,
     total: SEED_OBJECTIONS.length,

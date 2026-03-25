@@ -1,3 +1,4 @@
+import { setCors } from './_services/cors.js';
 import { searchApolloProspects } from './_services/apollo.js';
 import { scoreWithClaude } from './_services/scorer.js';
 import { nullSafeRoute } from './_services/router.js';
@@ -22,22 +23,22 @@ function delay(ms) {
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, CORS_HEADERS);
+    res.writeHead(204);
     return res.end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).set(CORS_HEADERS).json({ ok: false });
+    return res.status(405).json({ ok: false });
   }
 
   const { pin, icp } = req.body ?? {};
 
   if (!pin || pin !== process.env.ADMIN_PIN) {
-    return res.status(401).set(CORS_HEADERS).json({ ok: false, error: 'Unauthorized' });
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
 
   if (!icp) {
-    return res.status(400).set(CORS_HEADERS).json({ ok: false, error: 'icp required' });
+    return res.status(400).json({ ok: false, error: 'icp required' });
   }
 
   // Cap limit to 5 on Hobby plan (10s timeout), 10-15 on Pro (60s)
@@ -130,9 +131,9 @@ export default async function handler(req, res) {
       sendSlackBatchSummary({ ...stats, top_leads }),
     ]);
 
-    return res.status(200).set(CORS_HEADERS).json({ ok: true, run_id, ...stats, results });
+    return res.status(200).json({ ok: true, run_id, ...stats, results });
   } catch (err) {
     console.error('[prospect]', err.message);
-    return res.status(500).set(CORS_HEADERS).json({ ok: false, error: err.message });
+    return res.status(500).json({ ok: false, error: err.message });
   }
 }
