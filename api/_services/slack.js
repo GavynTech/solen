@@ -1,3 +1,59 @@
+export async function sendSlackBatchSummary({ total, high_score, queued, top_leads = [] }) {
+  try {
+    const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+    if (!webhookUrl) {
+      console.warn('[slack] SLACK_WEBHOOK_URL not set');
+      return false;
+    }
+
+    const topLeadLines = top_leads
+      .slice(0, 5)
+      .map(l => `• *${l.company_name ?? l.email}* — Score: ${l.vip_score} (${l.vip_tier})`)
+      .join('\n');
+
+    const blocks = [
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: `🔭 Prospecting Run Complete — ${total} leads processed`,
+          emoji: true,
+        },
+      },
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*Total Processed:*\n${total}` },
+          { type: 'mrkdwn', text: `*High Score (≥70):*\n${high_score}` },
+          { type: 'mrkdwn', text: `*Queued for Outreach:*\n${queued}` },
+        ],
+      },
+    ];
+
+    if (topLeadLines) {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*Top Leads:*\n${topLeadLines}` },
+      });
+    }
+
+    blocks.push({ type: 'divider' });
+
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attachments: [{ color: '#7c3aed', blocks }],
+      }),
+    });
+
+    return res.ok;
+  } catch (err) {
+    console.error('[slack] sendSlackBatchSummary error:', err.message);
+    return false;
+  }
+}
+
 const TIER_EMOJI = { VIP: '🔥', High: '⚡', Medium: '📊', Low: '📋' };
 const TIER_COLOR = { VIP: '#7c3aed', High: '#2563eb', Medium: '#d97706', Low: '#6b7280' };
 
