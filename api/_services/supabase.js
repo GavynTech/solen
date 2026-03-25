@@ -137,12 +137,10 @@ export async function updateSequenceStatus(id, status) {
   }
 }
 
-const DEMO_METRICS = { leads_today: 24, avg_score: 78, sequences_active: 11, emails_sent: 47 };
-
 export async function getLeadsWithSequences() {
   try {
     const supabase = getClient();
-    if (!supabase) return { leads: [], sequences: [], metrics: DEMO_METRICS };
+    if (!supabase) return { leads: [], sequences: [], metrics: {} };
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -172,13 +170,14 @@ export async function getLeadsWithSequences() {
       ['active', 'completed', 'replied', 'won'].includes(s.status)
     ).length;
 
-    // Demo fallback — swap with real data once pipeline is seeded
-    const metrics = leads.length === 0 ? DEMO_METRICS : { leads_today, avg_score, sequences_active, emails_sent };
-
-    return { leads, sequences, metrics };
+    return {
+      leads,
+      sequences,
+      metrics: { leads_today, avg_score, sequences_active, emails_sent },
+    };
   } catch (err) {
     console.error('[supabase] getLeadsWithSequences error:', err.message);
-    return { leads: [], sequences: [], metrics: DEMO_METRICS };
+    return { leads: [], sequences: [], metrics: {} };
   }
 }
 

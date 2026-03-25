@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const STATUS_DOT = {
   running: 'bg-emerald-400 animate-pulse',
@@ -35,36 +35,35 @@ function formatRelativeTime(iso) {
   return `${days}d ago`;
 }
 
-const MOCK_AGENTS = [
-  { id: 'pipeline', name: 'Pipeline Agent', status: 'running', stat: '142 leads enriched today', last_run: new Date(Date.now() - 3 * 60000).toISOString() },
-  { id: 'scout', name: 'Scout Agent', status: 'running', stat: '38 new prospects found', last_run: new Date(Date.now() - 7 * 60000).toISOString() },
-  { id: 'scorer', name: 'Scorer Agent', status: 'idle', stat: '97 leads scored this session', last_run: new Date(Date.now() - 18 * 60000).toISOString() },
-  { id: 'sequence', name: 'Sequence Agent', status: 'running', stat: '24 sequences active · 6 replied', last_run: new Date(Date.now() - 1 * 60000).toISOString() },
-  { id: 'monitor', name: 'Monitor Agent', status: 'standby', stat: 'Watching 14 warm leads', last_run: new Date(Date.now() - 2 * 3600000).toISOString() },
-  { id: 'cleanup', name: 'Cleanup Agent', status: 'error', stat: 'Apollo rate limit hit — retrying', last_run: new Date(Date.now() - 45 * 60000).toISOString() },
-];
-
-const MOCK_FEED = [
-  { timestamp: new Date(Date.now() - 1 * 60000).toISOString(), agent: 'Sequence Agent', action: 'Sent follow-up to marcus@acmelogistics.com — Day 3' },
-  { timestamp: new Date(Date.now() - 3 * 60000).toISOString(), agent: 'Pipeline Agent', action: 'Enriched 12 leads from Apollo batch #88' },
-  { timestamp: new Date(Date.now() - 5 * 60000).toISOString(), agent: 'Scout Agent', action: 'Found 7 new VP-level prospects in logistics vertical' },
-  { timestamp: new Date(Date.now() - 9 * 60000).toISOString(), agent: 'Scorer Agent', action: 'Scored batch of 25 — avg score 74, 4 flagged VIP' },
-  { timestamp: new Date(Date.now() - 14 * 60000).toISOString(), agent: 'Sequence Agent', action: 'Reply detected from sarah@fleetops.io — paused sequence' },
-  { timestamp: new Date(Date.now() - 22 * 60000).toISOString(), agent: 'Pipeline Agent', action: 'Deduped 3 leads against existing CRM contacts' },
-  { timestamp: new Date(Date.now() - 31 * 60000).toISOString(), agent: 'Scout Agent', action: 'Apollo search: "VP Supply Chain" SaaS 50-500 employees — 38 results' },
-  { timestamp: new Date(Date.now() - 45 * 60000).toISOString(), agent: 'Cleanup Agent', action: 'Apollo rate limit exceeded — backing off 30 min' },
-  { timestamp: new Date(Date.now() - 58 * 60000).toISOString(), agent: 'Scorer Agent', action: 'Re-scored 8 leads after new trigger events detected' },
-  { timestamp: new Date(Date.now() - 72 * 60000).toISOString(), agent: 'Sequence Agent', action: 'Enrolled 5 new leads into "Cold Outreach v3" sequence' },
-];
-
 export default function AgentFleet({ pin }) {
-  const [agents, setAgents] = useState(MOCK_AGENTS);
-  const [feed, setFeed] = useState(MOCK_FEED);
-  const [loading, setLoading] = useState(false);
+  const [agents, setAgents] = useState([]);
+  const [feed, setFeed] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // TODO: re-enable live fetch when API is ready
-  // const fetchStatus = useCallback(async () => { ... }, [pin]);
-  // useEffect(() => { fetchStatus(); const i = setInterval(fetchStatus, 10000); return () => clearInterval(i); }, [fetchStatus]);
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/agent-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setAgents(json.agents ?? []);
+        setFeed(json.feed ?? []);
+      }
+    } catch (err) {
+      console.error('[AgentFleet]', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [pin]);
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 10000);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
 
   const agentStatusMap = Object.fromEntries(agents.map(a => [a.id, a.status]));
 
