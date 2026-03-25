@@ -36,10 +36,45 @@ const OUTPUT_SCHEMA = {
       required: ['subject', 'body'],
       additionalProperties: false,
     },
+    rationale_object: {
+      type: 'object',
+      description: 'SHAP-style structured rationale for the score',
+      properties: {
+        positive_boosters: {
+          type: 'array',
+          description: 'Exactly 3 specific signals that boosted this score',
+          items: {
+            type: 'object',
+            properties: {
+              signal: { type: 'string', description: 'Short label, e.g. "Recent Series A funding"' },
+              impact: { type: 'string', description: 'Why this signal matters for Solen\'s ICP' },
+            },
+            required: ['signal', 'impact'],
+            additionalProperties: false,
+          },
+        },
+        risk_factor: {
+          type: 'object',
+          description: 'The single biggest red flag or uncertainty for this lead',
+          properties: {
+            signal: { type: 'string', description: 'Short label, e.g. "Low employee growth"' },
+            impact: { type: 'string', description: 'Why this is a risk or what to watch for' },
+          },
+          required: ['signal', 'impact'],
+          additionalProperties: false,
+        },
+        sales_hook: {
+          type: 'string',
+          description: 'The single sharpest angle for the sales rep to lead with — specific to this company\'s situation',
+        },
+      },
+      required: ['positive_boosters', 'risk_factor', 'sales_hook'],
+      additionalProperties: false,
+    },
     recommended_action: { type: 'string', description: 'Suggested next step for sales team' },
     confidence_interval: { type: 'string', description: 'Confidence range e.g. 85-95' },
   },
-  required: ['vip_score', 'vip_tier', 'score_rationale', 'score_factors', 'hooks_used', 'outreach_draft', 'recommended_action', 'confidence_interval'],
+  required: ['vip_score', 'vip_tier', 'score_rationale', 'score_factors', 'rationale_object', 'hooks_used', 'outreach_draft', 'recommended_action', 'confidence_interval'],
   additionalProperties: false,
 };
 
@@ -87,7 +122,12 @@ VIP = 80+, High = 60-79, Medium = 40-59, Low = <40.
 Write personalized outreach referencing specific company details. Be direct and value-focused, not generic.
 
 Always populate score_factors with exactly 4 entries: ICP Fit, Intent Signals, Engagement Fit, Revenue Fit. Each sub-score 0-100.
-If Recent Intelligence is provided, weave the top 2 most relevant hooks into the outreach_draft body, and list those hooks in hooks_used.`,
+If Recent Intelligence is provided, weave the top 2 most relevant hooks into the outreach_draft body, and list those hooks in hooks_used.
+
+For rationale_object:
+- positive_boosters: exactly 3 specific, concrete signals from the lead data that raised the score (e.g. "Series B funding — $12M raised", "Using HubSpot + Salesforce stack", "Hiring 4 RevOps roles"). Be specific, not generic.
+- risk_factor: the single biggest concern (e.g. "Only 45 employees — may lack dedicated RevOps budget", "No funding data — revenue trajectory unclear").
+- sales_hook: one sharp, specific angle tailored to this company's situation that a rep should lead with (e.g. "Lead with their EMEA expansion — Solen can score and sequence their new market leads automatically").`,
     messages: [
       {
         role: 'user',

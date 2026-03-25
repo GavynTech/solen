@@ -208,6 +208,7 @@ export default function AdminDashboard({ pin, onLogout }) {
                                 <td colSpan={7} className="border-b border-white/[0.04]">
                                   <ScoreBreakdown
                                     score_factors={lead.score_factors}
+                                    rationale_object={lead.rationale_object}
                                     vip_score={lead.vip_score}
                                     vip_tier={lead.vip_tier}
                                     rationale={lead.score_rationale}
