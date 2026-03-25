@@ -123,6 +123,8 @@ export default async function handler(req, res) {
       null_fields_patched,
       score_factors: score.score_factors ?? null,
       rationale_object: score.rationale_object ?? null,
+      trigger_events: hooks?.trigger_events ?? null,
+      personalization_snippet: hooks?.personalization_snippet ?? null,
       hubspot_id: hubspotResult.hubspot_id,
       hubspot_status: hubspotResult.status,
       slack_sent: slackSent,

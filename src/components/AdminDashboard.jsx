@@ -209,6 +209,8 @@ export default function AdminDashboard({ pin, onLogout }) {
                                   <ScoreBreakdown
                                     score_factors={lead.score_factors}
                                     rationale_object={lead.rationale_object}
+                                    trigger_events={lead.trigger_events}
+                                    personalization_snippet={lead.personalization_snippet}
                                     vip_score={lead.vip_score}
                                     vip_tier={lead.vip_tier}
                                     rationale={lead.score_rationale}

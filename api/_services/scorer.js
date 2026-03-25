@@ -79,10 +79,17 @@ const OUTPUT_SCHEMA = {
 };
 
 export async function scoreWithClaude({ email, name, enriched, research, null_fields_patched, hooks }) {
+  const triggerEvents = hooks?.trigger_events ?? [];
+  const personalizationSnippet = hooks?.personalization_snippet ?? null;
+
   const hooksSection = hooks && Object.values(hooks).some(v => v?.length > 0)
     ? [
         '\nRecent Intelligence (from company website):',
-        hooks.recent_news?.length ? `  News: ${hooks.recent_news.join('; ')}` : '',
+        personalizationSnippet ? `  Trigger Event Opener: "${personalizationSnippet}"` : '',
+        triggerEvents.length
+          ? `  Trigger Events:\n${triggerEvents.map(e => `    - [${e.type.toUpperCase()}] "${e.quote}"${e.date ? ` (${e.date})` : ''}`).join('\n')}`
+          : '',
+        hooks.recent_news?.length ? `  News signals: ${hooks.recent_news.join('; ')}` : '',
         hooks.hiring_signals?.length ? `  Hiring: ${hooks.hiring_signals.join('; ')}` : '',
         hooks.product_launches?.length ? `  Products: ${hooks.product_launches.join('; ')}` : '',
         hooks.pain_points?.length ? `  Pain points: ${hooks.pain_points.join('; ')}` : '',
@@ -122,7 +129,10 @@ VIP = 80+, High = 60-79, Medium = 40-59, Low = <40.
 Write personalized outreach referencing specific company details. Be direct and value-focused, not generic.
 
 Always populate score_factors with exactly 4 entries: ICP Fit, Intent Signals, Engagement Fit, Revenue Fit. Each sub-score 0-100.
-If Recent Intelligence is provided, weave the top 2 most relevant hooks into the outreach_draft body, and list those hooks in hooks_used.
+If Recent Intelligence is provided:
+- If a "Trigger Event Opener" is present, use it as the FIRST sentence of the outreach_draft body verbatim, then connect it to Solen's value prop.
+- Otherwise weave the top 2 most relevant hooks into the outreach body.
+- List all hooks/events referenced in hooks_used.
 
 For rationale_object:
 - positive_boosters: exactly 3 specific, concrete signals from the lead data that raised the score (e.g. "Series B funding — $12M raised", "Using HubSpot + Salesforce stack", "Hiring 4 RevOps roles"). Be specific, not generic.

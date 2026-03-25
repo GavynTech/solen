@@ -15,7 +15,17 @@ function tierColor(tier) {
   return colors[tier] ?? colors.Low;
 }
 
-export default function ScoreBreakdown({ score_factors, rationale_object, vip_score, vip_tier, rationale }) {
+const EVENT_BADGE = {
+  funding:     'bg-emerald-400/10 text-emerald-400',
+  launch:      'bg-violet-400/10 text-violet-400',
+  partnership: 'bg-blue-400/10 text-blue-400',
+  award:       'bg-amber-400/10 text-amber-400',
+  hiring:      'bg-cyan-400/10 text-cyan-400',
+  expansion:   'bg-indigo-400/10 text-indigo-400',
+  announcement:'bg-white/[0.06] text-white/50',
+};
+
+export default function ScoreBreakdown({ score_factors, rationale_object, trigger_events, personalization_snippet, vip_score, vip_tier, rationale }) {
   return (
     <div className="px-6 py-5 space-y-6">
       {/* Overall score */}
@@ -91,6 +101,30 @@ export default function ScoreBreakdown({ score_factors, rationale_object, vip_sc
         <div className="bg-violet-500/[0.07] border border-violet-500/20 rounded-xl px-4 py-3">
           <p className="text-[10px] font-semibold text-violet-400/70 uppercase tracking-widest mb-1">Sales Hook</p>
           <p className="text-sm text-violet-200/80 leading-relaxed">{rationale_object.sales_hook}</p>
+        </div>
+      )}
+
+      {/* Trigger Events */}
+      {Array.isArray(trigger_events) && trigger_events.length > 0 && (
+        <div className="border-t border-white/[0.06] pt-5 space-y-3">
+          <p className="text-[10px] font-semibold text-white/40 uppercase tracking-widest">Trigger Events</p>
+          {personalization_snippet && (
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-2.5">
+              <p className="text-[10px] text-white/40 mb-1">Email Opener</p>
+              <p className="text-xs text-white/70 italic">"{personalization_snippet}…"</p>
+            </div>
+          )}
+          {trigger_events.map((event, i) => (
+            <div key={i} className="flex gap-3">
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 mt-0.5 capitalize ${EVENT_BADGE[event.type] ?? EVENT_BADGE.announcement}`}>
+                {event.type}
+              </span>
+              <div>
+                <p className="text-xs text-white/60 leading-relaxed">"{event.quote}"</p>
+                {event.date && <p className="text-[11px] text-white/25 mt-0.5">{event.date}</p>}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
