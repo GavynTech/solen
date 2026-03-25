@@ -142,7 +142,7 @@ const DEMO_METRICS = { leads_today: 24, avg_score: 78, sequences_active: 11, ema
 export async function getLeadsWithSequences() {
   try {
     const supabase = getClient();
-    if (!supabase) return { leads: [], sequences: [], metrics: {} };
+    if (!supabase) return { leads: [], sequences: [], metrics: DEMO_METRICS };
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
