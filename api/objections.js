@@ -24,8 +24,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const matches = await findSimilarObjections(query.trim());
-    return res.status(200).json({ ok: true, matches });
+    const { matches, tone_analysis } = await findSimilarObjections(query.trim());
+    return res.status(200).json({ ok: true, matches, tone_analysis });
   } catch (err) {
     console.error('[objections]', err.message);
     return res.status(500).json({ ok: false, error: err.message });
