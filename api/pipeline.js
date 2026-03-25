@@ -1,10 +1,12 @@
 import { enrichWithApollo } from './_services/apollo.js';
 import { researchWithPerplexity } from './_services/perplexity.js';
+import { scrapeCompanyHooks } from './_services/firecrawl.js';
 import { nullSafeRoute } from './_services/router.js';
 import { scoreWithClaude } from './_services/scorer.js';
 import { upsertHubSpotContact } from './_services/hubspot.js';
 import { sendSlackAlert } from './_services/slack.js';
-import { logEnrichmentEvent } from './_services/supabase.js';
+import { logEnrichmentEvent, createLeadSequence } from './_services/supabase.js';
+import { sendOutreachEmail } from './_services/resend.js';
 
 function domainToCompany(email) {
   const d = email.split('@')[1]?.split('.')[0] ?? 'Company';
@@ -51,15 +53,16 @@ export default async function handler(req, res) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // ── Stage 1: Apollo + Perplexity in parallel ──────────────────────────────
+    // ── Stage 1: Apollo + Perplexity + Firecrawl in parallel ─────────────────
     timing.enrichment_start = Date.now() - pipelineStart;
-    const [apolloData, perplexityData] = await Promise.all([
+    const emailDomain = normalizedEmail.split('@')[1];
+    const [apolloData, perplexityData, hooks] = await Promise.all([
       enrichWithApollo(normalizedEmail),
-      // Perplexity needs some Apollo context, but we can start with email domain
       (async () => {
         const partialApollo = { company_name: company ?? null };
         return researchWithPerplexity(partialApollo, normalizedEmail);
       })(),
+      scrapeCompanyHooks(emailDomain),
     ]);
     timing.enrichment_ms = Date.now() - pipelineStart - timing.enrichment_start;
 
@@ -83,6 +86,7 @@ export default async function handler(req, res) {
       enriched,
       research: perplexityData,
       null_fields_patched,
+      hooks,
     });
     timing.scoring_ms = Date.now() - pipelineStart - timing.scoring_start;
 
@@ -94,9 +98,9 @@ export default async function handler(req, res) {
     ]);
     timing.delivery_ms = Date.now() - pipelineStart - timing.delivery_start;
 
-    // ── Stage 5: Supabase log (fire-and-forget) ────────────────────────────────
+    // ── Stage 5: Supabase log ──────────────────────────────────────────────────
     const pipeline_latency_ms = Date.now() - pipelineStart;
-    logEnrichmentEvent({
+    const lead_id = await logEnrichmentEvent({
       email: normalizedEmail,
       name: name ?? null,
       source: source ?? 'hero_cta_form',
@@ -114,6 +118,7 @@ export default async function handler(req, res) {
       outreach_body: score.outreach_draft?.body,
       recommended_action: score.recommended_action,
       null_fields_patched,
+      score_factors: score.score_factors ?? null,
       hubspot_id: hubspotResult.hubspot_id,
       hubspot_status: hubspotResult.status,
       slack_sent: slackSent,
@@ -122,6 +127,32 @@ export default async function handler(req, res) {
       intent_signals: perplexityData.intent_signals,
       created_at: new Date().toISOString(),
     });
+
+    // ── Stage 6: Email outreach sequence (fire-and-forget) ────────────────────
+    if (score.vip_score >= 60) {
+      Promise.resolve().then(async () => {
+        try {
+          const sent = await sendOutreachEmail({
+            to: normalizedEmail,
+            subject: score.outreach_draft?.subject,
+            body: score.outreach_draft?.body,
+          });
+          if (sent) {
+            await createLeadSequence({
+              email: normalizedEmail,
+              lead_id,
+              company_name: enriched.company_name,
+              vip_score: score.vip_score,
+              vip_tier: score.vip_tier,
+              outreach_subject: score.outreach_draft?.subject,
+              outreach_body: score.outreach_draft?.body,
+            });
+          }
+        } catch (err) {
+          console.error('[pipeline] sequence error:', err.message);
+        }
+      }).catch(console.error);
+    }
 
     return res.status(200).set(CORS_HEADERS).json({
       ok: true,
