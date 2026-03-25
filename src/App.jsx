@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import './index.css';
 import Hero            from './components/Hero';
 import ArchitectureMap from './components/ArchitectureMap';
@@ -5,8 +6,17 @@ import Features        from './components/Features';
 import Testimonials    from './components/Testimonials';
 import Pricing         from './components/Pricing';
 import ChatWidget      from './components/ChatWidget';
+import AdminRoute      from './components/AdminRoute';
 
 export default function App() {
+  // Force re-render on hash change so AdminRoute can mount/unmount
+  const [, setHash] = useState(window.location.hash);
+  useEffect(() => {
+    const onHash = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   return (
     <div className="bg-[#050507] min-h-screen">
       <Hero />
@@ -39,6 +49,9 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* ── Admin overlay (mounts at /#admin) ─────────────────────────── */}
+      <AdminRoute />
     </div>
   );
 }
