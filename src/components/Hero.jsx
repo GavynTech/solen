@@ -7,6 +7,29 @@ import {
 
 const PIPELINE_URL = '/api/pipeline';
 
+function SourceBadge({ name, color, logo }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <span
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium tracking-wide cursor-default border transition-all duration-300 ease-out"
+      style={{
+        transform: hovered ? 'translateX(6px)' : 'translateX(0)',
+        color: hovered ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.4)',
+        background: hovered ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
+        borderColor: hovered ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.06)',
+        boxShadow: hovered ? `0 0 14px 0px ${color}44` : 'none',
+      }}
+    >
+      <span style={{ color: hovered ? color : 'rgba(255,255,255,0.25)', transition: 'color 0.3s ease' }}>
+        {logo}
+      </span>
+      {name}
+    </span>
+  );
+}
+
 function domainToCompany(email) {
   const domain = (email.split('@')[1] || '').split('.')[0];
   return domain.charAt(0).toUpperCase() + domain.slice(1);
@@ -209,7 +232,7 @@ export default function Hero() {
         <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/[0.07] px-4 py-1.5 mb-8 backdrop-blur-sm">
           <Sparkles size={11} className="text-violet-400" />
           <span className="text-xs font-medium text-violet-300/90 tracking-wide">
-            AI-Powered Revenue Operations · Built on n8n
+            AI-Powered Revenue Operations · Powered by Claude AI
           </span>
         </div>
 
@@ -224,7 +247,7 @@ export default function Hero() {
 
         <p className="max-w-2xl text-base md:text-lg text-white/40 leading-relaxed mb-10 font-light">
           Solen is a done-for-you automated business system that enriches every
-          free-trial signup in real-time, scores them with GPT&#8209;4o, drafts
+          free-trial signup in real-time, scores them with Claude AI, drafts
           personalized outreach, and pings your sales team — all within 3 seconds of signup.
         </p>
 
@@ -292,7 +315,7 @@ export default function Hero() {
         <div className="flex flex-wrap items-center justify-center gap-3 mt-9">
           {[
             { icon: Zap,       label: 'Sub-3s Pipeline'       },
-            { icon: BarChart3, label: 'GPT-4o VIP Scoring'    },
+            { icon: BarChart3, label: 'Claude AI VIP Scoring'  },
             { icon: Shield,    label: 'Null-Safe Data Routing' },
             { icon: User,      label: 'Done-For-You Setup'    },
           ].map(({ icon: Icon, label }) => (
@@ -303,19 +326,75 @@ export default function Hero() {
           ))}
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-8 mt-14 pt-8 border-t border-white/[0.04] justify-center">
-          {[
-            { value: '14,200+', label: 'Leads Enriched'   },
-            { value: '$2.4M',   label: 'Pipeline Created' },
-            { value: '<3s',     label: 'Avg. Enrich Time' },
-            { value: '99.1%',   label: 'Uptime SLA'       },
-          ].map(({ value, label }) => (
-            <div key={label} className="flex flex-col items-center gap-0.5">
-              <span className="text-lg font-bold text-white/90 tabular-nums">{value}</span>
-              <span className="text-[11px] text-white/25 font-medium">{label}</span>
-            </div>
-          ))}
+        {/* Data sources */}
+        <div className="mt-14 pt-8 border-t border-white/[0.04] flex flex-col items-center gap-3">
+          <span className="text-[11px] font-semibold text-white/25 tracking-widest uppercase">
+            Enriches from
+          </span>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {[
+              {
+                name: 'LinkedIn',
+                color: '#0A66C2',
+                logo: (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  </svg>
+                ),
+              },
+              {
+                name: 'Clearbit',
+                color: '#6366f1',
+                logo: (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path fill="#0a0a0a" d="M12 6a6 6 0 1 0 0 12A6 6 0 0 0 12 6zm0 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                  </svg>
+                ),
+              },
+              {
+                name: 'Hunter',
+                color: '#f97316',
+                logo: (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  </svg>
+                ),
+              },
+              {
+                name: 'Apollo',
+                color: '#a78bfa',
+                logo: (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3l7 14H5L12 5z"/>
+                  </svg>
+                ),
+              },
+              {
+                name: 'ZoomInfo',
+                color: '#22d3ee',
+                logo: (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="2" y="2" width="9" height="9" rx="1"/>
+                    <rect x="13" y="2" width="9" height="9" rx="1"/>
+                    <rect x="2" y="13" width="9" height="9" rx="1"/>
+                    <rect x="13" y="13" width="9" height="9" rx="1"/>
+                  </svg>
+                ),
+              },
+              {
+                name: 'Crunchbase',
+                color: '#2563eb',
+                logo: (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 2H3a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm-9 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
+                  </svg>
+                ),
+              },
+            ].map(({ name, color, logo }) => (
+              <SourceBadge key={name} name={name} color={color} logo={logo} />
+            ))}
+          </div>
         </div>
       </main>
 

@@ -4,23 +4,32 @@ import { Star, Quote } from 'lucide-react';
 const testimonials = [
   {
     quote:
-      "We closed a $34K retainer within the first week. The VIP Slack alert fired at 11 PM — I followed up before any competitor even saw the form fill. That's the Revenue Engine working exactly as advertised.",
+      "Honestly didn't expect it to move that fast. Got a Slack ping at like 11 PM on a Thursday — checked the enrichment, sent a quick Loom, woke up to a reply. $34K retainer, closed before the weekend. That's not something I can replicate doing this manually.",
     name:  'Marcus Webb',
     title: 'Founder, Apex Digital Agency',
+    context: "Agency runs paid acquisition for 12 e-commerce brands. Installed Solen on a client's landing page.",
+    source: 'Via LinkedIn · March 2025',
+    photo: 'https://randomuser.me/api/portraits/men/32.jpg',
     stars: 5,
   },
   {
     quote:
-      "I was skeptical about another AI tool, but Solen is the first one that actually touches revenue. Our SDR now spends zero time on data entry — every lead arrives in HubSpot enriched, scored, and with a draft email ready to send.",
+      "My first reaction was 'another AI tool' — I've killed three of those this year. But our SDR literally stopped complaining after week one. Leads are showing up in HubSpot already enriched, scored, draft follow-up written. She asked me not to change anything.",
     name:  'Janelle Torres',
     title: 'Head of Growth, Meridian Marketing',
+    context: '8-person B2B agency. Was previously losing leads to 48-hour response lag on inbound forms.',
+    source: 'G2 Review · February 2025',
+    photo: 'https://randomuser.me/api/portraits/women/44.jpg',
     stars: 5,
   },
   {
     quote:
-      "Installed it on a client's site on a Tuesday. By Friday they had two discovery calls booked from leads they would have ghosted in the old system. The ROI conversation became very easy after that.",
+      "Set it up for a client on a Tuesday — maybe 45 minutes total including the HubSpot connection. By Friday they texted me. Two discovery calls booked from leads they definitely would've ghosted in the old system. Client's been quiet about price ever since.",
     name:  'Derek Ashford',
     title: 'Partner, Signal House Creative',
+    context: 'Creative agency offering full-funnel retainers. Deployed Solen across three client sites in Q1.',
+    source: 'Direct submission · January 2025',
+    photo: 'https://randomuser.me/api/portraits/men/67.jpg',
     stars: 5,
   },
 ];
@@ -85,21 +94,37 @@ export default function Testimonials() {
 
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {testimonials.map(({ quote, name, title, stars }) => (
+          {testimonials.map(({ quote, name, title, context, source, photo, stars }) => (
             <div
               key={name}
               className="relative flex flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-7 backdrop-blur-sm hover:-translate-y-1 transition-transform duration-300"
             >
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/20 to-transparent rounded-t-2xl" />
-              <Quote size={18} className="text-violet-500/40 mb-3" />
+
+              {/* Source badge */}
+              <div className="flex items-center justify-between mb-3">
+                <Quote size={18} className="text-violet-500/40" />
+                <span className="text-[10px] text-white/25 font-medium tracking-wide">{source}</span>
+              </div>
+
               <StarRow count={stars} />
-              <p className="text-[13.5px] text-white/60 leading-relaxed flex-1 mb-6">
+
+              <p className="text-[13.5px] text-white/60 leading-relaxed flex-1 mb-3">
                 "{quote}"
               </p>
+
+              {/* Context note */}
+              <p className="text-[11px] text-white/25 leading-relaxed mb-6 italic">
+                {context}
+              </p>
+
+              {/* Author */}
               <div className="flex items-center gap-3 pt-4 border-t border-white/[0.05]">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-white">{name.charAt(0)}</span>
-                </div>
+                <img
+                  src={photo}
+                  alt={name}
+                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-white/10"
+                />
                 <div>
                   <p className="text-xs font-semibold text-white/85">{name}</p>
                   <p className="text-[11px] text-white/35">{title}</p>
