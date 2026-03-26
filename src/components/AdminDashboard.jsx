@@ -3,6 +3,7 @@ import ProspectRunner from './ProspectRunner';
 import AgentFleet from './AgentFleet';
 import ScoreBreakdown from './ScoreBreakdown';
 import ObjectionHandler from './ObjectionHandler';
+import MeetingPrep from './MeetingPrep';
 import { MOCK_LEADS, MOCK_SEQUENCES, MOCK_METRICS } from '../mockData';
 
 const TIER_COLOR = {
@@ -118,7 +119,7 @@ export default function AdminDashboard({ pin, onLogout }) {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1 w-fit">
-          {['leads', 'sequences', 'prospect', 'agents', 'objections'].map(t => (
+          {['leads', 'sequences', 'prospect', 'agents', 'objections', 'prep'].map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -318,6 +319,10 @@ export default function AdminDashboard({ pin, onLogout }) {
 
             {tab === 'objections' && (
               <ObjectionHandler pin={pin} />
+            )}
+
+            {tab === 'prep' && (
+              <MeetingPrep pin={pin} />
             )}
           </>
         )}
