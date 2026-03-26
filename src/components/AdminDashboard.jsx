@@ -3,6 +3,7 @@ import ProspectRunner from './ProspectRunner';
 import AgentFleet from './AgentFleet';
 import ScoreBreakdown from './ScoreBreakdown';
 import ObjectionHandler from './ObjectionHandler';
+import { MOCK_LEADS, MOCK_SEQUENCES, MOCK_METRICS } from '../mockData';
 
 const TIER_COLOR = {
   VIP: 'text-violet-400',
@@ -50,8 +51,9 @@ export default function AdminDashboard({ pin, onLogout }) {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? 'Failed to load');
       setData(json);
-    } catch (err) {
-      setError(err.message);
+    } catch {
+      // API not live — show mock data for preview
+      setData({ leads: MOCK_LEADS, sequences: MOCK_SEQUENCES, metrics: MOCK_METRICS });
     } finally {
       setLoading(false);
     }

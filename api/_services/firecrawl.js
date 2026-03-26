@@ -159,6 +159,84 @@ function extractBaseHooks(markdown) {
   return hooks;
 }
 
+// Extracts structured company enrichment from homepage scrape.
+// Replaces Apollo for pipelines without an Apollo API key.
+export async function enrichWithFirecrawl(domain) {
+  if (!domain) return {};
+  if (!process.env.FIRECRAWL_API_KEY) return {};
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const markdown = await scrapeUrl(`https://${domain}`, controller.signal);
+    clearTimeout(timeout);
+
+    if (!markdown || markdown.length < 50) return {};
+
+    const lower = markdown.toLowerCase();
+
+    // Company name: first H1 or fallback to title-cased domain
+    const h1Match = markdown.match(/^#\s+(.{2,60})$/m);
+    const domainLabel = domain.split('.')[0];
+    const company_name = h1Match?.[1]?.replace(/[*_`]/g, '').trim()
+      ?? (domainLabel.charAt(0).toUpperCase() + domainLabel.slice(1));
+
+    // Industry: keyword heuristics
+    let industry = null;
+    if (['saas', 'software as a service', 'cloud platform', 'developer api', 'devtools'].some(k => lower.includes(k))) {
+      industry = 'Software / SaaS';
+    } else if (['ecommerce', 'e-commerce', 'online store', 'shopify'].some(k => lower.includes(k))) {
+      industry = 'E-Commerce';
+    } else if (['marketing agency', 'digital agency', 'creative agency', 'ad agency'].some(k => lower.includes(k))) {
+      industry = 'Marketing Agency';
+    } else if (['fintech', 'payments', 'banking', 'financial services'].some(k => lower.includes(k))) {
+      industry = 'Fintech';
+    } else if (['healthtech', 'healthcare', 'medical', 'clinical'].some(k => lower.includes(k))) {
+      industry = 'Healthcare';
+    } else if (['platform', 'software', 'app', 'solution'].some(k => lower.includes(k))) {
+      industry = 'Technology';
+    }
+
+    // Employee count: look for explicit mention
+    const empMatch = markdown.match(/(\d{1,4})\+?\s*(?:employees|team members|people|staff)/i);
+    const employee_count = empMatch ? parseInt(empMatch[1], 10) : null;
+
+    // Tech stack: well-known vendor names visible on the page
+    const KNOWN_TECH = [
+      'react', 'next.js', 'vue', 'angular', 'stripe', 'hubspot', 'salesforce',
+      'segment', 'intercom', 'zendesk', 'slack', 'aws', 'gcp', 'azure',
+    ];
+    const tech_stack = KNOWN_TECH.filter(t => lower.includes(t));
+
+    // Funding stage
+    let funding_stage = null;
+    if (lower.includes('series c')) funding_stage = 'Series C';
+    else if (lower.includes('series b')) funding_stage = 'Series B';
+    else if (lower.includes('series a')) funding_stage = 'Series A';
+    else if (lower.includes('seed round') || lower.includes('seed funding')) funding_stage = 'Seed';
+
+    // HQ: look for "Headquartered in", "Based in", or city/state patterns near "office"
+    const hqMatch = markdown.match(/(?:headquartered|based|offices?)\s+in\s+([A-Z][a-zA-Z\s,]+?)(?:\.|,|\n)/);
+    const headquarters = hqMatch?.[1]?.trim() ?? null;
+
+    return {
+      company_name,
+      industry,
+      employee_count,
+      annual_revenue: null,
+      tech_stack,
+      funding_stage,
+      headquarters,
+      linkedin_url: null,
+    };
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      console.error('[firecrawl] enrichWithFirecrawl error:', err.message);
+    }
+    return {};
+  }
+}
+
 export async function scrapeCompanyHooks(domain) {
   if (!domain) return {};
   if (!process.env.FIRECRAWL_API_KEY) return {};

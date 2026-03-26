@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { enrichWithApollo } from './_services/apollo.js';
+import { enrichWithFirecrawl } from './_services/firecrawl.js';
 import { scoreWithClaude } from './_services/scorer.js';
 import { nullSafeRoute } from './_services/router.js';
 import { upsertHubSpotContact } from './_services/hubspot.js';
@@ -25,7 +25,8 @@ export default async function handler(req, res) {
     // Fire pipeline in background — don't block the email confirmation
     (async () => {
       try {
-        const enrichment = await enrichWithApollo(email);
+        const emailDomain = email.split('@')[1];
+        const enrichment = await enrichWithFirecrawl(emailDomain);
         const routed     = nullSafeRoute({ ...enrichment, company_name: enrichment.company_name ?? company });
         const score      = await scoreWithClaude(email, routed);
         const [hsResult] = await Promise.allSettled([

@@ -1,7 +1,6 @@
 import { setCors } from './_services/cors.js';
-import { enrichWithApollo } from './_services/apollo.js';
+import { enrichWithFirecrawl, scrapeCompanyHooks } from './_services/firecrawl.js';
 import { researchWithPerplexity } from './_services/perplexity.js';
-import { scrapeCompanyHooks } from './_services/firecrawl.js';
 import { nullSafeRoute } from './_services/router.js';
 import { scoreWithClaude } from './_services/scorer.js';
 import { upsertHubSpotContact } from './_services/hubspot.js';
@@ -60,10 +59,10 @@ export default async function handler(req, res) {
     timing.enrichment_start = Date.now() - pipelineStart;
     const emailDomain = normalizedEmail.split('@')[1];
     const [apolloData, perplexityData, hooks] = await Promise.all([
-      enrichWithApollo(normalizedEmail),
+      enrichWithFirecrawl(emailDomain),
       (async () => {
-        const partialApollo = { company_name: company ?? null };
-        return researchWithPerplexity(partialApollo, normalizedEmail);
+        const partialContext = { company_name: company ?? null };
+        return researchWithPerplexity(partialContext, normalizedEmail);
       })(),
       scrapeCompanyHooks(emailDomain),
     ]);
@@ -76,7 +75,9 @@ export default async function handler(req, res) {
     // When Apollo returns nothing useful, inject realistic demo data so Claude
     // scores real signals and Slack shows a convincing alert on sales demos.
     let enrichment_mode = 'live';
-    if (!apolloData.company_name && !apolloData.industry) {
+    // Only fall back to demo data when Firecrawl returned nothing at all
+    // (e.g. domain blocks scrapers or FIRECRAWL_API_KEY missing)
+    if (!apolloData.company_name && !apolloData.industry && !apolloData.tech_stack?.length) {
       Object.assign(enriched, DEMO_ENRICHMENT(normalizedEmail));
       enrichment_mode = 'demo';
     }

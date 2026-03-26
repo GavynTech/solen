@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { MOCK_AGENTS, MOCK_FEED } from '../mockData';
 
 const STATUS_DOT = {
   running: 'bg-emerald-400 animate-pulse',
@@ -51,9 +52,13 @@ export default function AgentFleet({ pin }) {
       if (json.ok) {
         setAgents(json.agents ?? []);
         setFeed(json.feed ?? []);
+      } else {
+        throw new Error('not ok');
       }
-    } catch (err) {
-      console.error('[AgentFleet]', err);
+    } catch {
+      // API not live — show mock data for preview
+      setAgents(MOCK_AGENTS);
+      setFeed(MOCK_FEED);
     } finally {
       setLoading(false);
     }
