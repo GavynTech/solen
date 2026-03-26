@@ -43,7 +43,7 @@ export default function AdminRoute() {
         setPin(inputPin);
         setAuthed(true);
       } else {
-        setError('Invalid PIN');
+        setError(data.error || 'Invalid PIN');
       }
     } catch {
       setError('Connection error');
