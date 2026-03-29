@@ -1,5 +1,6 @@
 import { getSequencesDue, advanceSequence, updateSequenceStatus } from './_services/supabase.js';
 import { sendFollowUpEmail } from './_services/resend.js';
+import { logAuditEvent } from './_services/auditLog.js';
 
 const TEMPLATES = {
   day3: (company) => `Hi,
@@ -28,9 +29,12 @@ The Solens Team`,
 export default async function handler(req, res) {
   // Vercel cron sends Authorization: Bearer <CRON_SECRET>
   const authHeader = req.headers['authorization'];
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    logAuditEvent({ event_type: 'auth_failure', req, endpoint: '/api/sequence', details: { reason: 'invalid_cron_secret' } });
     return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
+
+  logAuditEvent({ event_type: 'cron_triggered', req, endpoint: '/api/sequence' });
 
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });

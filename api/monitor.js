@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { scrapeCompanyHooks } from './_services/firecrawl.js';
+import { logAuditEvent } from './_services/auditLog.js';
+import { sanitizeEmail } from './_services/sanitize.js';
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
@@ -51,14 +53,29 @@ async function sendSignalAlert({ domain, companyName, emails, newEvents }) {
 
 export default async function handler(req, res) {
   // Accept cron (GET with Authorization header) or manual trigger (POST with pin)
+  const cronSecret = process.env.CRON_SECRET;
+  const adminPin   = process.env.ADMIN_PIN;
+
   const isAuthorizedCron =
     req.method === 'GET' &&
-    req.headers['authorization'] === `Bearer ${process.env.CRON_SECRET}`;
+    !!cronSecret &&
+    req.headers['authorization'] === `Bearer ${cronSecret}`;
+
   const isManualTrigger =
-    req.method === 'POST' && req.body?.pin === process.env.ADMIN_PIN;
+    req.method === 'POST' &&
+    !!adminPin &&
+    req.body?.pin === adminPin;
 
   if (!isAuthorizedCron && !isManualTrigger) {
+    logAuditEvent({ event_type: 'auth_failure', req, endpoint: '/api/monitor', details: { method: req.method } });
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (isAuthorizedCron) {
+    logAuditEvent({ event_type: 'cron_triggered', req, endpoint: '/api/monitor' });
+  }
+  if (isManualTrigger) {
+    logAuditEvent({ event_type: 'admin_action', req, endpoint: '/api/monitor', details: { action: 'manual_trigger' } });
   }
 
   const supabase = getSupabase();
@@ -74,8 +91,8 @@ export default async function handler(req, res) {
   if (error) return res.status(500).json({ error: error.message });
   if (!sequences?.length) return res.status(200).json({ ok: true, checked: 0, alerts: 0 });
 
-  // Deduplicate domains
-  const domains = [...new Set(sequences.map(s => s.email.split('@')[1]).filter(Boolean))];
+  // Deduplicate domains (sanitizeEmail validates format and extracts domain safely)
+  const domains = [...new Set(sequences.map(s => sanitizeEmail(s.email)).filter(Boolean))];
 
   let alertCount = 0;
   const results = [];

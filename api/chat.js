@@ -1,10 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+import { setCors } from './_services/cors.js';
+import { requireApiKey } from './_services/auth.js';
+import { checkRateLimit } from './_services/rateLimit.js';
+import { logAuditEvent } from './_services/auditLog.js';
 
 const SYSTEM_PROMPT = `You are Solen's AI assistant. Solen builds done-for-you automated business systems —
 real-time lead enrichment, GPT-4o VIP scoring, personalized outreach drafts, and Slack/HubSpot
@@ -28,18 +26,37 @@ async function createWithRetry(client, params, maxRetries = 3) {
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, CORS_HEADERS);
+    if (!setCors(req, res)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Origin not allowed' }));
+    }
+    res.writeHead(204);
     return res.end();
   }
 
+  if (!setCors(req, res)) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'Origin not allowed' }));
+  }
+
   if (req.method !== 'POST') {
-    res.writeHead(405, { ...CORS_HEADERS, 'Content-Type': 'application/json' });
+    res.writeHead(405, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'Method not allowed' }));
+  }
+
+  if (requireApiKey(req, res)) {
+    logAuditEvent({ event_type: 'auth_failure', req, endpoint: '/api/chat', details: { reason: 'missing_or_invalid_api_key' } });
+    return;
+  }
+
+  if (checkRateLimit(req, res, 'chat')) {
+    logAuditEvent({ event_type: 'rate_limited', req, endpoint: '/api/chat' });
+    return;
   }
 
   const { messages } = req.body ?? {};
   if (!Array.isArray(messages) || messages.length === 0) {
-    res.writeHead(400, { ...CORS_HEADERS, 'Content-Type': 'application/json' });
+    res.writeHead(400, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'messages array required' }));
   }
 
@@ -49,7 +66,7 @@ export default async function handler(req, res) {
     .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
 
   if (sanitized.length === 0) {
-    res.writeHead(400, { ...CORS_HEADERS, 'Content-Type': 'application/json' });
+    res.writeHead(400, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'No valid messages provided' }));
   }
 
@@ -63,12 +80,12 @@ export default async function handler(req, res) {
     });
 
     const text = response.content.find((b) => b.type === 'text')?.text ?? '';
-    res.writeHead(200, { ...CORS_HEADERS, 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ reply: text }));
   } catch (err) {
     console.error('Chat API error:', err);
     const status = err.status === 429 ? 429 : 500;
-    res.writeHead(status, { ...CORS_HEADERS, 'Content-Type': 'application/json' });
+    res.writeHead(status, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: status === 429 ? 'Rate limit reached. Try again shortly.' : 'Something went wrong. Please try again.' }));
   }
 }

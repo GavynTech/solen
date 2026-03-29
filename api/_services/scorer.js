@@ -148,5 +148,15 @@ For rationale_object:
 
   const response = await stream.finalMessage();
   const textBlock = response.content.find((b) => b.type === 'text');
-  return JSON.parse(textBlock.text);
+  try {
+    return JSON.parse(textBlock.text);
+  } catch {
+    console.error('[scorer] failed to parse Claude JSON response');
+    return {
+      vip_score: 0, vip_tier: 'Low', score_rationale: 'Scoring unavailable',
+      score_factors: [], rationale_object: { positive_boosters: [], risk_factor: { signal: '', impact: '' }, sales_hook: '' },
+      hooks_used: [], outreach_draft: { subject: '', body: '' },
+      recommended_action: 'Manual review required', confidence_interval: '0-0',
+    };
+  }
 }

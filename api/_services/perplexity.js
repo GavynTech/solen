@@ -1,6 +1,9 @@
+import { sanitizeCompanyName } from './sanitize.js';
+
 export async function researchWithPerplexity(apolloData, email) {
   try {
-    const company = apolloData.company_name ?? email.split('@')[1]?.split('.')[0] ?? 'the company';
+    const rawCompany = apolloData.company_name ?? email.split('@')[1]?.split('.')[0] ?? 'the company';
+    const company = sanitizeCompanyName(rawCompany);
 
     const prompt = [
       `Research the company "${company}" for sales intelligence purposes.`,

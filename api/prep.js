@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { setCors } from './_services/cors.js';
+import { logAuditEvent } from './_services/auditLog.js';
+import { sanitizeEmail } from './_services/sanitize.js';
 import { enrichWithFirecrawl, scrapeCompanyHooks } from './_services/firecrawl.js';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -49,19 +51,25 @@ const PREP_SCHEMA = {
 };
 
 export default async function handler(req, res) {
-  setCors(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method === 'OPTIONS') {
+    if (!setCors(req, res)) return res.status(403).json({ error: 'Origin not allowed' });
+    return res.status(200).end();
+  }
+  if (!setCors(req, res)) return res.status(403).json({ error: 'Origin not allowed' });
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { email, pin } = req.body ?? {};
-  if (!pin || pin !== process.env.ADMIN_PIN) {
+  if (!pin || !process.env.ADMIN_PIN || pin !== process.env.ADMIN_PIN) {
+    logAuditEvent({ event_type: 'auth_failure', req, endpoint: '/api/prep', details: { reason: 'invalid_pin' } });
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  if (!email || !email.includes('@')) {
+
+  const domain = sanitizeEmail(email);
+  if (!domain) {
     return res.status(400).json({ error: 'Valid email required' });
   }
 
-  const domain = email.split('@')[1];
+  logAuditEvent({ event_type: 'admin_action', req, endpoint: '/api/prep', details: { action: 'meeting_prep', domain } });
 
   try {
     const [enriched, hooks] = await Promise.all([
@@ -114,7 +122,13 @@ Focus on why this company needs Solens right now based on what you can see about
     });
 
     const textBlock = response.content.find(b => b.type === 'text');
-    const briefing = JSON.parse(textBlock.text);
+    let briefing;
+    try {
+      briefing = JSON.parse(textBlock.text);
+    } catch {
+      console.error('[prep] failed to parse Claude JSON response');
+      return res.status(500).json({ error: 'Failed to generate briefing' });
+    }
 
     return res.status(200).json({
       ok: true,

@@ -1,4 +1,7 @@
 import { setCors } from './_services/cors.js';
+import { requireApiKey } from './_services/auth.js';
+import { checkRateLimit } from './_services/rateLimit.js';
+import { logAuditEvent } from './_services/auditLog.js';
 import { enrichWithFirecrawl, scrapeCompanyHooks } from './_services/firecrawl.js';
 import { researchWithPerplexity } from './_services/perplexity.js';
 import { nullSafeRoute } from './_services/router.js';
@@ -24,23 +27,30 @@ const DEMO_ENRICHMENT = (email) => ({
   linkedin_url: null,
 });
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export default async function handler(req, res) {
-  setCors(res);
-
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    if (!setCors(req, res)) return res.status(403).json({ ok: false, error: 'Origin not allowed' });
     res.writeHead(204);
     return res.end();
   }
 
+  if (!setCors(req, res)) {
+    return res.status(403).json({ ok: false, error: 'Origin not allowed' });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  }
+
+  if (requireApiKey(req, res)) {
+    logAuditEvent({ event_type: 'auth_failure', req, endpoint: '/api/pipeline', details: { reason: 'missing_or_invalid_api_key' } });
+    return;
+  }
+
+  if (checkRateLimit(req, res, 'pipeline')) {
+    logAuditEvent({ event_type: 'rate_limited', req, endpoint: '/api/pipeline' });
+    return;
   }
 
   const pipelineStart = Date.now();
